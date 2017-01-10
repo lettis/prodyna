@@ -142,6 +142,118 @@ project <- function() {
   NULL
 }
 
+#' create a README file
+#'
+#' Creates a README file to describe all automatically
+#' generated files in the project path.
+.make.readme <- function() {
+  sec <- function(title, level=1) {
+    separator <- paste(rep("\n", 1), collapse="")
+    indicator <- paste(rep("#", level), collapse="")
+    paste(separator, paste(indicator, title), sep="")
+  }
+  txt <- function(text) {
+    paste(text)
+  }
+
+  pd <- project()
+
+  proj_summary <- ""
+
+  add_doc <- function(elem, doc) {
+    if ( ! is.null(elem)) {
+      proj_summary <<- c(proj_summary, doc)
+    }
+  }
+
+  add_doc(pd$ref, c(sec("Reference Structure"),
+                    txt(pd$ref)))
+  add_doc(pd$traj, c(sec("Trajectory"),
+                     txt(pd$traj)))
+  add_doc(pd$dihedrals, c(sec("Dihedrals"),
+                          txt(pd$dihedrals)))
+  add_doc(pd$dPCAplus, sec("dPCA+ Analysis"))
+  add_doc(pd$dPCAplus$proj, c(sec("covariance-based", level=2),
+                              txt(paste("**projection**",
+                                        pd$dPCAplus$proj,
+                                        "\n\n**covariance matrix**",
+                                        pd$dPCAplus$cov,
+                                        "\n\n**eigenvectors (columns)**",
+                                        pd$dPCAplus$vec,
+                                        "\n\n**eigenvalues**",
+                                        pd$dPCAplus$val,
+                                        "\n\n**stats**",
+                                        pd$dPCAplus$stats))))
+  add_doc(pd$dPCAplus$projn, c(sec("correlation-based", level=2),
+                               txt(paste("**projection**",
+                                         pd$dPCAplus$projn,
+                                         "\n\n**correlation matrix**",
+                                         pd$dPCAplus$covn,
+                                         "\n\n**eigenvectors (columns)**",
+                                         pd$dPCAplus$vecn,
+                                         "\n\n**eigenvalues**",
+                                         pd$dPCAplus$valn,
+                                         "\n\n**stats**",
+                                         pd$dPCAplus$statsn))))
+  if ( ! is.null(pd$caDists)) {
+    proj_summary <- c(proj_summary, sec("C$_\\alpha$-distances"))
+    for (d in pd$caDists) {
+      add_doc(d, txt(d))
+    }
+  }
+  if ( ! is.null(pd$caPCA)) {
+    proj_summary <- c(proj_summary, sec("C$_\\alpha$-PCA"))
+    for (i in 1:length(pd$caPCA)) {
+      d <- pd$caPCA[i]
+      proj_summary <- c(proj_summary, sec(names(d), level=2))
+      d <- d[[1]]
+      add_doc(d$proj, c(sec("covariance-based", level=3),
+                        txt(paste("**projection**",
+                                  d$proj,
+                                  "\n\n**covariance matrix**",
+                                  d$cov,
+                                  "\n\n**eigenvectors (columns)**",
+                                  d$vec,
+                                  "\n\n**eigenvalues**",
+                                  d$val,
+                                  "\n\n**stats**",
+                                  d$stats))))
+      add_doc(d$projn, c(sec("correlation-based", level=3),
+                         txt(paste("**projection**",
+                                   d$projn,
+                                   "\n\n**correlation matrix**",
+                                   d$covn,
+                                   "\n\n**eigenvectors (columns)**",
+                                   d$vecn,
+                                   "\n\n**eigenvalues**",
+                                   d$valn,
+                                   "\n\n**stats**",
+                                   d$statsn))))
+    }
+  }
+  if (length(pd$reactionCoords) > 0) {
+    proj_summary <- c(proj_summary, sec("Reaction Coordinates"))
+    lapply(pd$reactionCoords, function(fname) {
+      proj_summary <<- c(proj_summary,
+                         sec(fname, level="2"),
+                         txt(readLines(paste(strsplit(fname, "\\.")[[1]][1],
+                                             "desc",
+                                             sep="."))))
+    })
+  }
+
+
+  cat(paste(c(proj_summary, ""), sep="", collapse="\n"),
+      file="README.Rmd")
+  opts <- list()
+  opts["toc"] <- TRUE
+  sink("/dev/null")
+  suppressMessages(rmarkdown::render("README.Rmd",
+                                     "pdf_document",
+                                     output_options = opts))
+  sink()
+}
+
 #' update project information
 .update <- function() {
   .check.projectPath()
@@ -156,6 +268,8 @@ project <- function() {
   project$reactionCoords <- .list.reactionCoords()
 
   assign("project", project, envir=.project_cache)
+
+  .make.readme()
 }
 
 #' initialize project
@@ -171,4 +285,7 @@ initialize <- function(path=".") {
          envir=.project_cache)
   .update()
 }
+
+
+
 
