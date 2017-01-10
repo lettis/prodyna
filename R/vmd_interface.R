@@ -17,3 +17,9 @@ exec.tcl <- function(tcl) {
   con <- socketConnection(port=5555)
   write(tcl, con)
 }
+
+
+# TODO: more commands for direct manipulation.
+#    use 'logfile console' to get Tcl commands for gui actions
+
+
