@@ -20,6 +20,38 @@ plt.ramachandran <- function(resno) {
   p
 }
 
+#' plot matrix
+#'
+#' Plots a matrix as colored tiles.
+#' @param x Either a filename with the matrix in table format or a matrix object.
+#' @param diverge Use diverging color palette.
+#' @export
+plt.matrix <- function(x, diverge = FALSE) {
+  suppressMessages(require(ggplot2))
+  if (is.character(x)) {
+    # interpret as filename
+    M <- data.matrix(read.table(x))
+  }
+  colnames(M) <- 1:ncol(M)
+  rownames(M) <- 1:nrow(M)
+
+  if (diverge) {
+    clr_palette <- "RdYlBu"
+  } else {
+    clr_palette <- "YlGnBu"
+  }
+
+  ggplot(reshape2::melt(M), aes(Var1, Var2, fill=value)) +
+    geom_raster() +
+    scale_y_reverse(breaks=1:nrow(M)) +
+    scale_x_continuous(breaks=1:ncol(M)) +
+    scale_fill_distiller(palette=clr_palette) +
+    theme_bw() +
+    theme(axis.title.x=element_blank(),
+          axis.title.y=element_blank())
+}
+
+
 #' plot 2d-proj, 1d-proj and eigenvector content for given PCA
 #' @export
 plt.pcaOverview <- function(pca, pcs, corr=FALSE) {

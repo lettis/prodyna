@@ -1,7 +1,12 @@
 
+## TODO: per default do not recalculate if data already exists.
+##       force recalculation with 'force = TRUE'
+
+
 #' generate dihedrals, return updated project information
+#' @param skipCA Vector of CA indices to be skipped. Default: first and last.
 #' @export
-generate.dihedrals <- function() {
+generate.dihedrals <- function(skipCA=NULL) {
   .check.projectPath()
   # get project description
   pd <- project()
@@ -17,7 +22,11 @@ generate.dihedrals <- function() {
   calpha_indices <- pdb_ref$atom$eleno[pdb_ref$calpha]
   # remove first and last calpha
   # (incomplete dihedrals at terminal regions)
-  calpha_indices <- head(calpha_indices, -1)[-1]
+  if (is.null(skipCA)) {
+    calpha_indices <- head(calpha_indices, -1)[-1]
+  } else {
+    calpha_indices <- calpha_indices[!(1:length(calpha_indices) %in% skipCA)]
+  }
   bb <- pdb_ref$atom$eleno[filter.backbone(pdb_ref)]
   dih_indices <- lapply(calpha_indices, function(ca){
     i <- which(bb == ca)
@@ -36,30 +45,30 @@ generate.dihedrals <- function() {
   fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
   unlink(fname_xvg)
   print("running GMX to generate dihedrals")
-  system2(gmx.binary, c("angle",
-                        " -f ",
-                        pd$traj,
-                        " -n ",
-                        tmp_ndx,
-                        " -ov ",
-                        fname_xvg,
-                        " -type dihedral -all"),
+  system2(get.binary("gmx"), c("angle",
+                               " -f ",
+                               pd$traj,
+                               " -n ",
+                               tmp_ndx,
+                               " -ov ",
+                               fname_xvg,
+                               " -type dihedral -all"),
           stdout = TRUE,
           stderr = TRUE)
+  # streamed xvg -> dih conversion
+  cmd <- paste(get.binary("awk"),
+               "'!/^#.*/ && !/^@.*/ {for(i=3; i<=NF; ++i)",
+               #"'{for(i=3; i<=NF; ++i)",
+               "printf(\" %s\", $i); printf(\"\\n\")}'",
+               fname_xvg,
+               ">",
+               fname_dihedrals)
+  system(cmd)
   # cleanup
-  dih <- fread(fname_xvg, drop=c(1,2))
-  fwrite(dih,
-         fname_dihedrals,
-         sep=" ",
-         quote=FALSE,
-         row.names=FALSE,
-         col.names=FALSE)
   unlink(tmp_ndx)
   unlink("angdist.xvg")
   unlink(fname_xvg)
   print("done")
-
-  pd$dihedrals <- list.dihedrals()
 
   .update()
 }
@@ -150,7 +159,7 @@ run.dPCAplus <- function(corr=FALSE) {
   # get project information
   pd <- project()
   if (!("dihedrals" %in% names(pd)) | length(pd$dihedrals) == 0) {
-    pd <- generate.dihedrals(pd)
+    generate.dihedrals()
   }
   pd$dPCAplus <- list()
   if (corr) {
@@ -197,7 +206,7 @@ run.dPCAplus <- function(corr=FALSE) {
                 "-P")
   }
   # run PCA
-  system2(paste(fastpca.dir, "fastpca", sep=""), args=params)
+  system2(get.binary("fastpca"), args=params)
 
   .update()
 }

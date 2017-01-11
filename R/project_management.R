@@ -145,7 +145,7 @@ project <- function() {
       add_doc(d, txt(d))
     }
   }
-  if ( ! is.null(pd$caPCA)) {
+  if ( ! is.null(pd$caPCA) & length(pd$caPCA) > 0) {
     proj_summary <- c(proj_summary, sec("C$_\\alpha$-PCA"))
     for (i in 1:length(pd$caPCA)) {
       d <- pd$caPCA[i]
