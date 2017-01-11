@@ -1,77 +1,151 @@
 
-## TODO: per default do not recalculate if data already exists.
-##       force recalculation with 'force = TRUE'
-
-
 #' generate dihedrals, return updated project information
 #' @param skipCA Vector of CA indices to be skipped. Default: first and last.
+#' @param ignoreCache Ignore cached files and recalculate in any case.
 #' @export
-generate.dihedrals <- function(skipCA=NULL) {
+generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
   .check.projectPath()
   # get project description
   pd <- project()
-  filter.backbone <- function(pdb) {
-    pdb$atom$elety == "N" |
-      pdb$atom$elety == "CA" |
-      pdb$atom$elety == "C"
+
+  if (length(pd$dihedrals) == 0 | ignoreCache) {
+    filter.backbone <- function(pdb) {
+      pdb$atom$elety == "N" |
+        pdb$atom$elety == "CA" |
+        pdb$atom$elety == "C"
+    }
+    pdb_ref <- bio3d::read.pdb(pd$ref[[1]])
+    # correct for custom residue types
+    pdb_ref$calpha <- pdb_ref$atom$elety == "CA"
+    n_atoms <- length(pdb_ref$calpha)
+    calpha_indices <- pdb_ref$atom$eleno[pdb_ref$calpha]
+    # remove first and last calpha
+    # (incomplete dihedrals at terminal regions)
+    if (is.null(skipCA)) {
+      calpha_indices <- head(calpha_indices, -1)[-1]
+    } else {
+      calpha_indices <- calpha_indices[!(1:length(calpha_indices) %in% skipCA)]
+    }
+    bb <- pdb_ref$atom$eleno[filter.backbone(pdb_ref)]
+    dih_indices <- lapply(calpha_indices, function(ca){
+      i <- which(bb == ca)
+      phi <- c(bb[i-2], bb[i-1], bb[i], bb[i+1])
+      psi <- c(bb[i-1], bb[i], bb[i+1], bb[i+2])
+      c(phi, psi)
+    })
+    dih_indices <- do.call("c", dih_indices)
+    # prepare index file to identify backbone-dihedral atoms
+    tmp_ndx <- "tmp_phipsi.ndx"
+    unlink(tmp_ndx)
+    write("[PhiPsi]", tmp_ndx)
+    write(dih_indices, tmp_ndx, append=TRUE, ncolumns=4)
+    # compute dihedrals
+    fname_dihedrals <- paste(pd$traj, ".dih", sep="")
+    fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
+    unlink(fname_xvg)
+    print("running GMX to generate dihedrals")
+    system2(get.binary("gmx"), c("angle",
+                                 " -f ",
+                                 pd$traj,
+                                 " -n ",
+                                 tmp_ndx,
+                                 " -ov ",
+                                 fname_xvg,
+                                 " -type dihedral -all"),
+            stdout = TRUE,
+            stderr = TRUE)
+    # streamed xvg -> dih conversion
+    cmd <- paste(get.binary("awk"),
+                 "'!/^#.*/ && !/^@.*/ {for(i=3; i<=NF; ++i)",
+                 #"'{for(i=3; i<=NF; ++i)",
+                 "printf(\" %s\", $i); printf(\"\\n\")}'",
+                 fname_xvg,
+                 ">",
+                 fname_dihedrals)
+    system(cmd)
+    # cleanup
+    unlink(tmp_ndx)
+    unlink("angdist.xvg")
+    unlink(fname_xvg)
+    print("done")
   }
-  pdb_ref <- bio3d::read.pdb(pd$ref[[1]])
-  # correct for custom residue types
-  pdb_ref$calpha <- pdb_ref$atom$elety == "CA"
-  n_atoms <- length(pdb_ref$calpha)
-  calpha_indices <- pdb_ref$atom$eleno[pdb_ref$calpha]
-  # remove first and last calpha
-  # (incomplete dihedrals at terminal regions)
-  if (is.null(skipCA)) {
-    calpha_indices <- head(calpha_indices, -1)[-1]
-  } else {
-    calpha_indices <- calpha_indices[!(1:length(calpha_indices) %in% skipCA)]
-  }
-  bb <- pdb_ref$atom$eleno[filter.backbone(pdb_ref)]
-  dih_indices <- lapply(calpha_indices, function(ca){
-    i <- which(bb == ca)
-    phi <- c(bb[i-2], bb[i-1], bb[i], bb[i+1])
-    psi <- c(bb[i-1], bb[i], bb[i+1], bb[i+2])
-    c(phi, psi)
-  })
-  dih_indices <- do.call("c", dih_indices)
-  # prepare index file to identify backbone-dihedral atoms
-  tmp_ndx <- "tmp_phipsi.ndx"
-  unlink(tmp_ndx)
-  write("[PhiPsi]", tmp_ndx)
-  write(dih_indices, tmp_ndx, append=TRUE, ncolumns=4)
-  # compute dihedrals
-  fname_dihedrals <- paste(pd$traj, ".dih", sep="")
-  fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
-  unlink(fname_xvg)
-  print("running GMX to generate dihedrals")
-  system2(get.binary("gmx"), c("angle",
-                               " -f ",
-                               pd$traj,
-                               " -n ",
-                               tmp_ndx,
-                               " -ov ",
-                               fname_xvg,
-                               " -type dihedral -all"),
-          stdout = TRUE,
-          stderr = TRUE)
-  # streamed xvg -> dih conversion
-  cmd <- paste(get.binary("awk"),
-               "'!/^#.*/ && !/^@.*/ {for(i=3; i<=NF; ++i)",
-               #"'{for(i=3; i<=NF; ++i)",
-               "printf(\" %s\", $i); printf(\"\\n\")}'",
-               fname_xvg,
-               ">",
-               fname_dihedrals)
-  system(cmd)
-  # cleanup
-  unlink(tmp_ndx)
-  unlink("angdist.xvg")
-  unlink(fname_xvg)
-  print("done")
 
   .update()
 }
+
+#' run dPCA+
+#'
+#' Runs a dPCA+ analysis for the given project.
+#' If dihedrals have not been generated yet, they will be automatically
+#' using the default settings (remove first and last C\eqn{\alpha} to get
+#' rid of the end-caps).
+#' @param corr Use correlation instead of covariance. Effectively whitens the data before doing analysis.
+#' @param ignoreCache Ignore cached files and recalculate in any case.
+#' @export
+run.dPCAplus <- function(corr=FALSE, ignoreCache=FALSE) {
+  .check.projectPath()
+  # get project information
+  pd <- project()
+  if (!("dihedrals" %in% names(pd)) | length(pd$dihedrals) == 0) {
+    generate.dihedrals()
+  }
+  if (is.null(pd$dPCAplus) | length(pd$dPCAplus) == 0 | ignoreCache) {
+    pd$dPCAplus <- list()
+    if (corr) {
+      postfix <- "n"
+    } else {
+      postfix <- ""
+    }
+    for (name in c("proj", "vec", "val", "cov", "stats")) {
+      pd$dPCAplus[[paste(name, postfix, sep="")]] <- paste(pd$dihedrals,
+                                                           ".",
+                                                           name,
+                                                           postfix,
+                                                           sep="")
+    }
+    # run PCA
+    if (corr) {
+      params <- c("-f",
+                  pd$dihedrals,
+                  "-p",
+                  pd$dPCAplus$projn,
+                  "-c",
+                  pd$dPCAplus$covn,
+                  "-v",
+                  pd$dPCAplus$vecn,
+                  "-l",
+                  pd$dPCAplus$valn,
+                  "-s",
+                  pd$dPCAplus$statsn,
+                  "-P",
+                  "-N")
+    } else {
+      params <- c("-f",
+                  pd$dihedrals,
+                  "-p",
+                  pd$dPCAplus$proj,
+                  "-c",
+                  pd$dPCAplus$cov,
+                  "-v",
+                  pd$dPCAplus$vec,
+                  "-l",
+                  pd$dPCAplus$val,
+                  "-s",
+                  pd$dPCAplus$stats,
+                  "-P")
+    }
+    # run PCA
+    system2(get.binary("fastpca"), args=params)
+  }
+
+  .update()
+}
+
+
+
+#######
+# TODO: caching for all functions below!
+#######
 
 #' generate trajectory with C\eqn{\alpha} distances as coordinates
 #' @export
@@ -148,65 +222,6 @@ generate.caDistances <- function(residue.mindist=4, residue.maxdist=NULL) {
   } else {
     pd$caDists <- c(pd$caDists, ca_dist_fname)
   }
-
-  .update()
-}
-
-#' run dPCA+
-#' @export
-run.dPCAplus <- function(corr=FALSE) {
-  .check.projectPath()
-  # get project information
-  pd <- project()
-  if (!("dihedrals" %in% names(pd)) | length(pd$dihedrals) == 0) {
-    generate.dihedrals()
-  }
-  pd$dPCAplus <- list()
-  if (corr) {
-    postfix <- "n"
-  } else {
-    postfix <- ""
-  }
-  for (name in c("proj", "vec", "val", "cov", "stats")) {
-    pd$dPCAplus[[paste(name, postfix, sep="")]] <- paste(pd$dihedrals,
-                                                         ".",
-                                                         name,
-                                                         postfix,
-                                                         sep="")
-  }
-  # run PCA
-  if (corr) {
-    params <- c("-f",
-                pd$dihedrals,
-                "-p",
-                pd$dPCAplus$projn,
-                "-c",
-                pd$dPCAplus$covn,
-                "-v",
-                pd$dPCAplus$vecn,
-                "-l",
-                pd$dPCAplus$valn,
-                "-s",
-                pd$dPCAplus$statsn,
-                "-P",
-                "-N")
-  } else {
-    params <- c("-f",
-                pd$dihedrals,
-                "-p",
-                pd$dPCAplus$proj,
-                "-c",
-                pd$dPCAplus$cov,
-                "-v",
-                pd$dPCAplus$vec,
-                "-l",
-                pd$dPCAplus$val,
-                "-s",
-                pd$dPCAplus$stats,
-                "-P")
-  }
-  # run PCA
-  system2(get.binary("fastpca"), args=params)
 
   .update()
 }
