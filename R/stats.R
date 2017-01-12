@@ -31,6 +31,11 @@ stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, cir
   cors <- lapply(columns, function(c) {
     xs <- colSelect(c)[[1]]
     N <- length(xs)
+    if (lag.max < 1) {
+      tau <- round(lag.max*N)
+    } else {
+      tau <- lag.max
+    }
     if (circular) {
       # ensure radians
       if (tolower(circ.units) == "deg") {
@@ -40,27 +45,14 @@ stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, cir
       xs <- xs - min(xs)
       mu <- atan2(sum(sin(xs))/N,
                   sum(cos(cs))/N)
-      # periodic distance to mean
-      D <- function(x) {
-        d <- x-mu
-        if (d < 0) {
-          d <- d + 2*pi
-        } else if (d > 2*pi) {
-          d <- d - 2*pi
-        }
-
-        d
-      }
+      #TODO Rcpp circacf function
     } else {
       mu <- sum(xs) / N
-      # linear distance to mean
-      D <- function(x) {
-        x-mu
-      }
+      #TODO acf
     }
 
-    #TODO finish
-
-
+    #TODO normalize
   })
+
+  cors
 }
