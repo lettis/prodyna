@@ -25,9 +25,12 @@ plt.ramachandran <- function(resno) {
 #' Plots a matrix as colored tiles.
 #' @param x Either a filename with the matrix in table format or a matrix object.
 #' @param diverge Use diverging color palette.
+#' @param fancy Fancy plotting with interactive elements.
 #' @export
-plt.matrix <- function(x, diverge = FALSE) {
+plt.matrix <- function(x, diverge = FALSE, fancy = TRUE) {
   suppressMessages(require(ggplot2))
+  suppressMessages(require(dplyr))
+  suppressMessages(require(plotly))
   if (is.character(x)) {
     # interpret as filename
     M <- data.matrix(read.table(x))
@@ -41,14 +44,23 @@ plt.matrix <- function(x, diverge = FALSE) {
     clr_palette <- "YlGnBu"
   }
 
-  ggplot(reshape2::melt(M), aes(Var1, Var2, fill=value)) +
-    geom_raster() +
-    scale_y_reverse(breaks=1:nrow(M)) +
-    scale_x_continuous(breaks=1:ncol(M)) +
-    scale_fill_distiller(palette=clr_palette) +
-    theme_bw() +
-    theme(axis.title.x=element_blank(),
-          axis.title.y=element_blank())
+  p <- ggplot(reshape2::melt(M), aes(Var1, Var2, fill=value)) +
+          geom_raster() +
+          scale_y_reverse(breaks=1:nrow(M)) +
+          scale_x_continuous(breaks=1:ncol(M)) +
+          scale_fill_distiller(palette=clr_palette) +
+          theme_bw() +
+          theme(axis.title.x=element_blank(),
+                axis.title.y=element_blank())
+
+  if (fancy) {
+    p <- ggplotly(p, tooltip="value") %>%
+          config(displayModeBar=FALSE) %>%
+          layout(xaxis=list(fixedrange=TRUE)) %>%
+          layout(yaxis=list(fixedrange=TRUE))
+  }
+
+  p
 }
 
 
@@ -170,6 +182,6 @@ plt.cumFlucts <- function() {
 ##   columns: vector of column indices to use
 ##   corrlength: extend of autocorrelation computation.
 ##               if < 1, ratio of number of data points
-plt.autocorr <- function(coords, columns, corrlength=0.25) {
+plt.autocor <- function(coords, columns, corrlength=0.25) {
   #TODO: finish
 }
