@@ -32,9 +32,9 @@ stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, cir
     xs <- colSelect(c)[[1]]
     N <- length(xs)
     if (lag.max < 1) {
-      tau <- round(lag.max*N)
+      tau_max <- round(lag.max*N)
     } else {
-      tau <- lag.max
+      tau_max <- lag.max
     }
     if (circular) {
       # ensure radians
@@ -43,15 +43,17 @@ stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, cir
       }
       # rebase period to [0, 2pi]
       xs <- xs - min(xs)
-      mu <- atan2(sum(sin(xs))/N,
-                  sum(cos(cs))/N)
-      #TODO Rcpp circacf function
+      # compute ACF (cov) on circular data
+      rho <- circacf(xs, tau_max)
+      # normalize -> ACF (corr)
+      rho <- rho / rho[[1]]
     } else {
-      mu <- sum(xs) / N
-      #TODO acf
+      rho <- acf(xs,
+                 lag.max=tau_max,
+                 type="correlation",
+                 plot=FALSE)
     }
-
-    #TODO normalize
+    rho
   })
 
   cors
