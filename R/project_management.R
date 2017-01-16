@@ -105,7 +105,7 @@ project <- function() {
   proj_summary <- ""
 
   add_doc <- function(elem, doc) {
-    if ( ! is.null(elem)) {
+    if ((! is.null(elem)) & (! length(elem) == 0)) {
       proj_summary <<- c(proj_summary, doc)
     }
   }
@@ -116,7 +116,7 @@ project <- function() {
                      txt(pd$traj)))
   add_doc(pd$dihedrals, c(sec("Dihedrals"),
                           txt(pd$dihedrals)))
-  add_doc(pd$dPCAplus, sec("dPCA+ Analysis"))
+  add_doc(pd$dPCAplus$proj, sec("dPCA+ Analysis"))
   add_doc(pd$dPCAplus$proj, c(sec("covariance-based", level=2),
                               txt(paste("**projection**",
                                         pd$dPCAplus$proj,
@@ -139,7 +139,7 @@ project <- function() {
                                          pd$dPCAplus$valn,
                                          "\n\n**stats**",
                                          pd$dPCAplus$statsn))))
-  if ( ! is.null(pd$caDists)) {
+  if ( ! is.null(pd$caDists) & length(pd$caDists) > 0) {
     proj_summary <- c(proj_summary, sec("C$_\\alpha$-distances"))
     for (d in pd$caDists) {
       add_doc(d, txt(d))
