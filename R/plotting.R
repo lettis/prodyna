@@ -72,11 +72,11 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
   suppressMessages(require(GGally))
   suppressMessages(require(ggplot2))
   if (corr) {
-    check.filesExist(c(pca$projn, pca$vecn))
+    .check.filesExist(c(pca$projn, pca$vecn))
     proj <- fread(pca$projn, select=pcs)
     vecs <- fread(pca$vecn, select=pcs)
   } else {
-    check.filesExist(c(pca$proj, pca$vec))
+    .check.filesExist(c(pca$proj, pca$vec))
     proj <- fread(pca$proj, select=pcs)
     vecs <- fread(pca$vec, select=pcs)
   }

@@ -86,6 +86,17 @@ project <- function() {
   NULL
 }
 
+.check.filesExist <- function(fnames) {
+  allFilesExist <- all(do.call(c, lapply(fnames,
+                                      function(fname) {
+                                        file.exists(fname)
+                                      })))
+  stopifnot(allFilesExist)
+}
+
+
+
+
 #' create a README file
 #'
 #' Creates a README file to describe all automatically
