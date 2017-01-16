@@ -41,8 +41,6 @@ stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, cir
       if (tolower(circ.units) == "deg") {
         xs <- NISTunits::NISTdegTOradian(xs)
       }
-      # rebase period to [0, 2pi]
-      xs <- xs - min(xs)
       # compute ACF (cov) on circular data
       rho <- circacf(xs, tau_max)
       # normalize -> ACF (corr)
