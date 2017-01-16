@@ -90,13 +90,11 @@ run.dPCAplus <- function(corr=FALSE, ignoreCache=FALSE) {
     generate.dihedrals()
   }
 
-  #TODO test this
-  dpca_keys <- names(pd$dPCAPlus)
+  dpca_keys <- names(pd$dPCAplus)
   missing_files <- any(do.call(c, lapply(dpca_keys[grep("*n$",
                                                         dpca_keys,
                                                         invert=(!corr))],
-                                         function(x) {length(pd$dPCAPlus[x]) == 0})))
-
+                                         function(x) {length(pd$dPCAPlus[[x]]) == 0})))
   if (is.null(pd$dPCAplus) |
       missing_files |
       ignoreCache) {
