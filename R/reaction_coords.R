@@ -336,15 +336,15 @@ select.reactionCoordinates <- function(coords, columns) {
   pipes <- do.call(c, lapply(1:length(coords), function(i) {
     cols <- paste(paste("\\$", columns[[i]], sep=""), collapse=", ")
     paste("<(",
-          awk.binary,
+          get.binary("awk"),
           "'{print",
           cols,
           "}'",
           coords[[i]],
           ")")
   }))
-  cmd <- paste(paste(bash.binary, " -c \"", sep=""),
-               paste.binary,
+  cmd <- paste(paste(get.binary("bash"), " -c \"", sep=""),
+               get.binary("paste"),
                "-d ' '",
                paste(pipes, collapse=" "),
                ">",

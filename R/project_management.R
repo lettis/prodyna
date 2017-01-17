@@ -83,7 +83,19 @@ project <- function() {
   } else {
     stop(.warnings$no_init)
   }
-  NULL
+  path
+}
+
+#' returns normalized path for files in project
+#' @param subpath Path inside project directory. Will be constructed to full path from parts if given as a vector.
+#' @export
+get.fullPath <- function(subpath) {
+  project_path <- .check.projectPath()
+  normalizePath(gsub("//*",
+                     "/",
+                     paste(c(project_path, subpath),
+                           collapse="/")),
+                mustWork=FALSE)
 }
 
 .check.filesExist <- function(fnames) {

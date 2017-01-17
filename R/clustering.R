@@ -6,7 +6,7 @@
 clustering.estimate.radii <- function(rc, radii) {
   .check.projectPath()
   # create clustering directory
-  cls_dir <- normalizePath(paste(rc, "clustering", sep="."))
+  suppressWarnings(cls_dir <- normalizePath(paste(rc, "clustering", sep=".")))
   if ( ! dir.exists(cls_dir)) {
     dir.create(cls_dir)
   }
@@ -31,11 +31,35 @@ clustering.estimate.radii <- function(rc, radii) {
   message("... finished")
 }
 
+#' Return data frame with population per frame
+#' @param rc The clustered reaction coordinates
+#' @param radii Selection of radii. If NULL (default), get all available
+#' @export
+clustering.get.pops <- function(rc, radii=NULL) {
+  if (is.null(radii)) {
+    popfiles <- list.files(get.fullPath(paste(rc, "clustering", sep=".")),
+                           pattern="pop_*",
+                           full.names=TRUE)
+  } else {
+    popfiles <- sapply(radii, function(r) {
+      get.fullPath(c(paste(rc, "clustering", sep="."),
+                     paste("pop_", sprintf("%0.6f", r), sep="")))
+    })
+  }
+  do.call(data.frame,
+          lapply(popfiles, function(fname){
+            pops <- data.frame(read.table(fname)[[1]])
+            colnames(pops) <- tail(strsplit(fname, split="/")[[1]], n=1)
+            pops
+          }))
+}
+
 
 #' Plot per-frame populations for given radii.
 #' @param rc Reaction coordinates used for clustering.
 #' @param radii Radii selection. If NULL (default), plot all available.
 #' @param logy Plot with logarithmic y-scale.
+#' @export
 clustering.plot.pops <- function(rc, radii=NULL, logy=TRUE) {
-  #TODO implement
+  pops <- clustering.get.pops(rc, radii)
 }
