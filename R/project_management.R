@@ -88,9 +88,9 @@ project <- function() {
 
 .check.filesExist <- function(fnames) {
   allFilesExist <- all(do.call(c, lapply(fnames,
-                                      function(fname) {
-                                        file.exists(fname)
-                                      })))
+                                         function(fname) {
+                                           file.exists(fname)
+                                         })))
   stopifnot(allFilesExist)
 }
 

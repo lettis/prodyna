@@ -1,4 +1,18 @@
 
+
+#' transform x -> -log(x) for plotting
+.reverselog_trans <- function(base = exp(1)) {
+  trans <- function(x) -log(x, base)
+  inv <- function(x) base^(-x)
+  scales::trans_new(paste0("reverselog-",
+                           format(base)),
+                    trans,
+                    inv,
+                    scales::log_breaks(base = base),
+                    domain = c(1e-100, Inf))
+}
+
+
 #' plot Ramachandran plot
 #' @param resno Residue number.
 #' @export
@@ -12,7 +26,7 @@ plt.ramachandran <- function(resno) {
   p <- ggplot(data.frame(phi, psi)) +
     stat_bin2d(aes(x=phi, y=psi), bins=180) +
     scale_fill_distiller(palette="YlGnBu",
-                         trans=reverselog_trans()) +
+                         trans=.reverselog_trans()) +
     xlim(-180,180) +
     ylim(-180,180) +
     theme(legend.position = "none")
@@ -34,7 +48,10 @@ plt.matrix <- function(x, diverge = FALSE, fancy = TRUE) {
   if (is.character(x)) {
     # interpret as filename
     M <- data.matrix(read.table(x))
+  } else {
+    M <- data.matrix(x)
   }
+  print(paste("R x C:  ", nrow(M), "x", ncol(M)))
   colnames(M) <- 1:ncol(M)
   rownames(M) <- 1:nrow(M)
 
@@ -43,9 +60,9 @@ plt.matrix <- function(x, diverge = FALSE, fancy = TRUE) {
   } else {
     clr_palette <- "YlGnBu"
   }
-
-  p <- ggplot(reshape2::melt(M), aes(Var1, Var2, fill=value)) +
-          geom_raster() +
+  # plot rows along y, columns along x
+  p <- ggplot(reshape2::melt(M)) +
+          geom_raster(aes(y=Var1, x=Var2, fill=value)) +
           scale_y_reverse(breaks=1:nrow(M)) +
           scale_x_continuous(breaks=1:ncol(M)) +
           scale_fill_distiller(palette=clr_palette) +
@@ -113,7 +130,7 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
                                          y=names(proj)[y])) +
                          stat_bin2d(bins=200) +
                          scale_fill_distiller(palette="YlGnBu",
-                                              trans=reverselog_trans()),
+                                              trans=.reverselog_trans()),
                        y,
                        x)
       } else if (y < x) {
