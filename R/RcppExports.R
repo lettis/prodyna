@@ -12,3 +12,12 @@ circacf <- function(x, tau_max) {
     .Call('prodyna_circacf', PACKAGE = 'prodyna', x, tau_max)
 }
 
+#' Compute ACF using OpenMP
+#'
+#' ACF is computed in 'cov'-type.
+#' @param x The input data.
+#' @param tau_max The max correlation lag.
+fastacf <- function(x, tau_max) {
+    .Call('prodyna_fastacf', PACKAGE = 'prodyna', x, tau_max)
+}
+

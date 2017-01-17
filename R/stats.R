@@ -43,15 +43,12 @@ stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, cir
       }
       # compute ACF (cov) on circular data
       rho <- circacf(xs, tau_max)
-      # normalize -> ACF (corr)
-      rho <- rho / rho[[1]]
     } else {
-      rho <- acf(xs,
-                 lag.max=tau_max,
-                 type="correlation",
-                 plot=FALSE)
+      # compute ordinary ACF, but with parallelized code
+      rho <- fastacf(xs, tau_max)
     }
-    rho
+    # normalize -> ACF (corr)
+    rho / rho[[1]]
   })
 
   cors
