@@ -61,5 +61,19 @@ clustering.get.pops <- function(rc, radii=NULL) {
 #' @param logy Plot with logarithmic y-scale.
 #' @export
 clustering.plot.pops <- function(rc, radii=NULL, logy=TRUE) {
+  suppressMessages(library(ggplot2))
+  suppressMessages(library(reshape2))
   pops <- clustering.get.pops(rc, radii)
+  for(i in colnames(pops)) {
+    pops[[i]] <- sort(pops[[i]], decreasing=TRUE)
+  }
+  pops$id <- 1:nrow(pops)
+  p <- ggplot(melt(pops, id.vars="id")) +
+        geom_line(aes(x=id, y=value, color=variable)) +
+        xlab("frames") +
+        ylab("sorted populations")
+  if (logy) {
+    p <- p + scale_y_log10()
+  }
+  p
 }
