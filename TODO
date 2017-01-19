@@ -1,0 +1,10 @@
+
+- all generator functions (e.g. in 'reaction_coords.R') should
+  update the project object and return it, essentially by returning
+  project()
+
+- plotting of pops, etc should be in 'plotting.R', under
+  'plt.[...]', not in 'clustering'.
+
+- plotting of pops must get more performant, e.g. by using
+  histograms with number of bins say 10% of nrow(data).

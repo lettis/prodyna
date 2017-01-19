@@ -87,9 +87,9 @@ project <- function() {
 }
 
 #' returns normalized path for files in project
-#' @param subpath Path inside project directory. Will be constructed to full path from parts if given as a vector.
+#' @param subpath Path inside project directory. Will be constructed to full path from parts if given as a vector. If empty string (default), simply returns to project directory itself.
 #' @export
-get.fullPath <- function(subpath) {
+get.fullPath <- function(subpath="") {
   project_path <- .check.projectPath()
   normalizePath(gsub("//*",
                      "/",

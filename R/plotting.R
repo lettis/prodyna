@@ -51,7 +51,6 @@ plt.matrix <- function(x, diverge = FALSE, fancy = TRUE) {
   } else {
     M <- data.matrix(x)
   }
-  print(paste("R x C:  ", nrow(M), "x", ncol(M)))
   colnames(M) <- 1:ncol(M)
   rownames(M) <- 1:nrow(M)
 
@@ -90,16 +89,15 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
   suppressMessages(require(ggplot2))
   if (corr) {
     .check.filesExist(c(pca$projn, pca$vecn))
-    proj <- fread(pca$projn, select=pcs)
-    vecs <- fread(pca$vecn, select=pcs)
+    proj <- fread(pca$projn, select=pcs, verbose=FALSE)
+    vecs <- fread(pca$vecn, select=pcs, verbose=FALSE)
   } else {
     .check.filesExist(c(pca$proj, pca$vec))
-    proj <- fread(pca$proj, select=pcs)
-    vecs <- fread(pca$vec, select=pcs)
+    proj <- fread(pca$proj, select=pcs, verbose=FALSE)
+    vecs <- fread(pca$vec, select=pcs, verbose=FALSE)
   }
   vec_names <- names(vecs)
-  logproj <-
-    n_dih <- dim(vecs)[1]
+  n_dih <- dim(vecs)[1]
   vecs <- do.call("rbind",
                   lapply(vec_names, function(n) {
                     data.frame(dih=vecs[[n]], v=n, ndx=1:n_dih)

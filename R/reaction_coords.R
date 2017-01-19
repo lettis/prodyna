@@ -88,6 +88,7 @@ run.dPCAplus <- function(corr=FALSE, ignoreCache=FALSE) {
   pd <- project()
   if (!("dihedrals" %in% names(pd)) | length(pd$dihedrals) == 0) {
     generate.dihedrals()
+    init(get.fullPath())
   }
 
   dpca_keys <- names(pd$dPCAplus)
