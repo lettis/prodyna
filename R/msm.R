@@ -1,6 +1,5 @@
 
 
-
 #' construct transition count matrix from trajectory
 #'
 #' Jumps are encoded as jump from row-index to column-index, i.e.
@@ -41,5 +40,4 @@ msm.transitionMatrix <- function(traj, lag, row.normalized=FALSE) {
   }
   C
 }
-
 
