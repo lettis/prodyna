@@ -61,6 +61,10 @@ clustering.get.pops <- function(rc, radii=NULL) {
 #' @param logy Plot with logarithmic y-scale.
 #' @export
 clustering.plot.pops <- function(rc, radii=NULL, logy=TRUE) {
+
+  #TODO find plotting method with higher performance
+  #     (not geom_point, perhaps 1d hist with bins=1% of n data points)
+
   suppressMessages(library(ggplot2))
   suppressMessages(library(reshape2))
   pops <- clustering.get.pops(rc, radii)
@@ -77,3 +81,4 @@ clustering.plot.pops <- function(rc, radii=NULL, logy=TRUE) {
   }
   p
 }
+
