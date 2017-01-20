@@ -41,3 +41,31 @@ msm.transitionMatrix <- function(traj, lag, row.normalized=FALSE) {
   C
 }
 
+#' simulate state trajectory from Markov State Model
+#'
+#' Generates a state trajectory of length n_steps+1 (n_steps simulation steps plus
+#' the initial state). State names are in the range of 1:nrow(T).
+#'
+#' @param T column-normalized transition matrix encoding the MSM.
+#' @param initial_state State number of state to start with. Must be in range 1:nrow(T).
+#' @param n_steps Number of simulation steps.
+#' @export
+msm.sim <- function(T, initial_state, n_steps){
+  n_states <- nrow(T)
+
+  propagate <- function(state) {
+    candidate <- sample(1:n_states, 1)
+    while(runif(1) > T[candidate,state]) {
+      candidate <- sample(1:n_states, 1)
+    }
+    candidate
+  }
+
+  traj <- initial_state
+  for (i in 1:n_steps) {
+    traj <- c(traj, propagate(traj[i]))
+  }
+  traj
+}
+
+
