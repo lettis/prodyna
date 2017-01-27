@@ -46,8 +46,8 @@ NumericVector circacf(NumericVector x, unsigned int tau_max) {
     firstprivate(tau_max,n)\
     shared(acf,x)\
     schedule(static,16)
-  for (unsigned int tau=0; tau < tau_max; ++tau) {
-    for (unsigned int i=0; i < n-tau; ++i) {
+  for (tau=0; tau < tau_max; ++tau) {
+    for (i=0; i < n-tau; ++i) {
       acf[tau] += x[i+tau] * x[i];
     }
     acf[tau] /= (n-tau);
