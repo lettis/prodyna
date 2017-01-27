@@ -16,13 +16,13 @@ using namespace Rcpp;
 // [[Rcpp::export]]
 NumericVector fastacf(NumericVector x, unsigned int tau_max) {
   unsigned int n = x.length();
-  // compute periodic mean
+  // compute mean
   double mu = 0;
   for (unsigned int i=0; i < n; ++i) {
     mu += x[i];
   }
   mu /= n;
-  // shift coordinates using periodic boundary corrections
+  // center coordinates
   for (unsigned int i=0; i < n; ++i) {
     x[i] = x[i] - mu;
   }
