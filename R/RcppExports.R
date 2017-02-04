@@ -4,7 +4,7 @@
 #' Compute ACF of circular data
 #'
 #' Computes the autocorrelation of circular data,
-#' **defined on the range [0, 2pi], expressed in radians.**
+#' **defined on the range [-pi, pi], expressed in radians.**
 #' ACF is computed in 'cov'-type.
 #' @param x The input data.
 #' @param tau_max The max correlation lag.
@@ -19,5 +19,14 @@ circacf <- function(x, tau_max) {
 #' @param tau_max The max correlation lag.
 fastacf <- function(x, tau_max) {
     .Call('prodyna_fastacf', PACKAGE = 'prodyna', x, tau_max)
+}
+
+#' Compute RGB color code from sampling of Ramachandran plot
+#'
+#' phi and psi values are defined on range [-180, 180].
+#' @param phis Sampling of phi values.
+#' @param psis Sampling of psi values.
+rama2rgb <- function(phis, psis) {
+    .Call('prodyna_rama2rgb', PACKAGE = 'prodyna', phis, psis)
 }
 

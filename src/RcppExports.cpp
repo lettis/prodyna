@@ -29,3 +29,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// rama2rgb
+NumericVector rama2rgb(NumericVector phis, NumericVector psis);
+RcppExport SEXP prodyna_rama2rgb(SEXP phisSEXP, SEXP psisSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type phis(phisSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type psis(psisSEXP);
+    rcpp_result_gen = Rcpp::wrap(rama2rgb(phis, psis));
+    return rcpp_result_gen;
+END_RCPP
+}

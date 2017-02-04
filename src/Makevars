@@ -1,3 +1,5 @@
 PKG_LIBS = -fopenmp -lgomp
 PKG_CPPFLAGS = -fopenmp
 PKG_CXXFLAGS = -fopenmp `Rscript -e 'Rcpp:::CxxFlags()'`
+CXX_STD = CXX11
+

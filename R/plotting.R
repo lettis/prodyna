@@ -39,9 +39,9 @@ plt.ramachandran <- function(resno) {
 #' Plots a matrix as colored tiles.
 #' @param x Either a filename with the matrix in table format or a matrix object.
 #' @param diverge Use diverging color palette.
-#' @param fancy Fancy plotting with interactive elements.
+#' @param fancy Fancy plotting with interactive elements (default: FALSE).
 #' @export
-plt.matrix <- function(x, diverge = FALSE, fancy = TRUE) {
+plt.matrix <- function(x, diverge = FALSE, fancy = FALSE) {
   suppressMessages(require(ggplot2))
   suppressMessages(require(dplyr))
   suppressMessages(require(plotly))
@@ -89,12 +89,12 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
   suppressMessages(require(ggplot2))
   if (corr) {
     .check.filesExist(c(pca$projn, pca$vecn))
-    proj <- fread(pca$projn, select=pcs, verbose=FALSE)
-    vecs <- fread(pca$vecn, select=pcs, verbose=FALSE)
+    proj <- fread(pca$projn, select=pcs, verbose=FALSE, showProgress=FALSE)
+    vecs <- fread(pca$vecn, select=pcs, verbose=FALSE, showProgress=FALSE)
   } else {
     .check.filesExist(c(pca$proj, pca$vec))
-    proj <- fread(pca$proj, select=pcs, verbose=FALSE)
-    vecs <- fread(pca$vec, select=pcs, verbose=FALSE)
+    proj <- fread(pca$proj, select=pcs, verbose=FALSE, showProgress=FALSE)
+    vecs <- fread(pca$vec, select=pcs, verbose=FALSE, showProgress=FALSE)
   }
   vec_names <- names(vecs)
   n_dih <- dim(vecs)[1]
@@ -149,6 +149,35 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
   plt
 }
 
+#' plot 2d-proj for given PCA
+#' @export
+plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE) {
+  .check.projectPath()
+  suppressMessages(require(data.table))
+  suppressMessages(require(ggplot2))
+  if (corr) {
+    .check.filesExist(c(pca$projn, pca$vecn))
+    proj <- fread(pca$projn, select=c(dim1, dim2), verbose=FALSE, showProgress=FALSE)
+  } else {
+    .check.filesExist(c(pca$proj, pca$vec))
+    proj <- fread(pca$proj, select=c(dim1, dim2), verbose=FALSE, showProgress=FALSE)
+  }
+
+  ggplot(proj) +
+    geom_bin2d(bins=200,
+               aes(x=V1,
+                   y=V2,
+                   fill=-log(..count../max(..count..)))) +
+    scale_fill_distiller(palette="YlGnBu",
+                         guide=guide_legend(title="[kT]",
+                                            reverse=TRUE)) +
+    xlab(paste("PC", dim1)) +
+    ylab(paste("PC", dim2)) +
+    theme_bw()
+}
+
+
+
 #' plot cumulative fluctuations
 #'
 #' Takes all available PCAs and plots their cumulative fluctuations in a single plot.
@@ -199,4 +228,46 @@ plt.cumFlucts <- function() {
 ##               if < 1, ratio of number of data points
 plt.autocor <- function(coords, columns, corrlength=0.25) {
   #TODO: finish
+}
+
+#' plot state geometries as Ramacolor plots
+#'
+#' @param statetraj File with state trajectory
+#' @param states State selection for Ramacolor plot. Either a vector with state numbers, or NULL, meaning all (default).
+#' @param dihedrals File with dihedral angles. If NULL (default), take dihedrals from project.
+#' @export
+plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
+  suppressMessages(require(ggplot2))
+  if (is.null(dihedrals)) {
+    .check.projectPath()
+    pd <- project()
+    dihedrals <- pd$dihedrals
+  }
+  dih <- data.table::fread(dihedrals,
+                           verbose = FALSE,
+                           showProgress = FALSE)
+  traj <- data.table::fread(statetraj,
+                            verbose = FALSE,
+                            showProgress = FALSE)[[1]]
+  if (is.null(states)) {
+    states <- sort(unique(traj))
+  }
+  n_residues <- ncol(dih) / 2
+  # construct Ramacolor dataframe
+  rc_data <- do.call("rbind", lapply(states, function(s) {
+    sel_dih <- dih[traj == s, ]
+    do.call("rbind", lapply(1:n_residues, function(i_res) {
+      phis <- sel_dih[[2*i_res-1]]
+      psis <- sel_dih[[2*i_res]]
+      rgb_vec <- rama2rgb(phis, psis)
+      data.frame(ires=i_res, state=s, r=rgb_vec[1], g=rgb_vec[2], b=rgb_vec[3])
+    }))
+  }))
+
+  ggplot(rc_data) +
+    geom_raster(aes(x=state, y=ires, fill=rgb(r, g, b))) +
+    scale_fill_identity() +
+    xlab("state") +
+    ylab("residue") +
+    xlim(1, length(states))
 }
