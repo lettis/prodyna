@@ -150,17 +150,34 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
 }
 
 #' plot 2d-proj for given PCA
+#'
+#' plots a 2d free energy landscape (in kT) for the given PCA projection.
+#' @param pca Either a PCA reference from the project (e.g. prodyna::project()$dPCAplus), or a filename.
+#' @param dim1 First dimension to plot (default: 1).
+#' @param dim2 Second dimension to plot (default: 2).
+#' @param corr Plot projections of correlation based PCA. Only works with project reference (default: FALSE).
 #' @export
 plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE) {
-  .check.projectPath()
   suppressMessages(require(data.table))
   suppressMessages(require(ggplot2))
-  if (corr) {
-    .check.filesExist(c(pca$projn, pca$vecn))
-    proj <- fread(pca$projn, select=c(dim1, dim2), verbose=FALSE, showProgress=FALSE)
+
+  file_read <- function(fname) {
+    fread(fname,
+          select=c(dim1, dim2),
+          verbose=FALSE,
+          showProgress=FALSE)
+  }
+  if (is.list(pca)) {
+    .check.projectPath()
+    if (corr) {
+      .check.filesExist(c(pca$projn, pca$vecn))
+      proj <- file_read(pca$projn)
+    } else {
+      .check.filesExist(c(pca$proj, pca$vec))
+      proj <- file_read(pca$proj)
+    }
   } else {
-    .check.filesExist(c(pca$proj, pca$vec))
-    proj <- fread(pca$proj, select=c(dim1, dim2), verbose=FALSE, showProgress=FALSE)
+    proj <- file_read(pca)
   }
 
   ggplot(proj) +
@@ -175,8 +192,6 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE) {
     ylab(paste("PC", dim2)) +
     theme_bw()
 }
-
-
 
 #' plot cumulative fluctuations
 #'
@@ -226,8 +241,39 @@ plt.cumFlucts <- function() {
 ##   columns: vector of column indices to use
 ##   corrlength: extend of autocorrelation computation.
 ##               if < 1, ratio of number of data points
-plt.autocor <- function(coords, columns, corrlength=0.25) {
-  #TODO: finish
+
+#' plot autocorrelation of observables
+#'
+#' @param coords Filename of coordinates.
+#' @param lag.max The maximal lagtime. If < 1 (default: 0.25), interpret as ratio to total length, else given in number of timesteps.
+#' @param columns Vector with column indices of observables to compute ACF for.
+#' @param circular Compute ACF for circular variables (e.g. dihedral angles).
+#' @param dt Timestep in [ps]. If given, time axis will be scaled accordingly. Default: NULL, i.e. express time in number of timesteps.
+#' @export
+plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) {
+  suppressMessages(require(ggplot2))
+  suppressMessages(require(data.table))
+  acf_data <- stats.autocor(coords,
+                            columns = columns,
+                            lag.max = lag.max,
+                            circular = circular)
+  n <- length(acf_data[[1]])
+  if (is.null(dt)) {
+    timeline <-  0:(n-1)
+    x_lbl <- "frame"
+  } else {
+    timeline <- 0:(n-1) * dt
+    x_lbl <- "time [ps]"
+  }
+  acf_data <- data.frame(t=timeline, acf_data)
+  colnames(acf_data) <- c("t", columns)
+  acf_data <- melt(acf_data, id.vars=c("t"))
+
+  ggplot(acf_data) +
+    geom_line(aes(x=t, y=value, color=variable)) +
+    scale_y_log10(limits=c(0.1, 1)) +
+    xlab(x_lbl) +
+    ylab("ACF")
 }
 
 #' plot state geometries as Ramacolor plots

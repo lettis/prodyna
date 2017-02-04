@@ -13,7 +13,7 @@ stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, cir
   if (is.character(x)) {
     # interpret as filename
     colSelect <- function(col) {
-      data.table::fread(input=x, select=col)
+      data.table::fread(input=x, select=col, verbose=FALSE, showProgress=FALSE)
     }
     if (is.null(columns)) {
       columns <- names(data.table::fread(x, nrows=1))
