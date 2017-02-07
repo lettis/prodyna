@@ -273,7 +273,9 @@ plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) 
     geom_line(aes(x=t, y=value, color=variable)) +
     scale_y_log10(limits=c(0.1, 1)) +
     xlab(x_lbl) +
-    ylab("ACF")
+    ylab("ACF") +
+    theme_bw() +
+    theme(legend.title = element_blank())
 }
 
 #' plot state geometries as Ramacolor plots
@@ -313,7 +315,7 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
   ggplot(rc_data) +
     geom_raster(aes(x=state, y=ires, fill=rgb(r, g, b)), hjust=0) +
     scale_fill_identity() +
-    scale_x_discrete() +
+ #   scale_x_discrete() +
     xlab("state") +
     ylab("residue") +
     xlim(1, length(states)) +
