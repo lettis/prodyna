@@ -311,9 +311,11 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
   }))
 
   ggplot(rc_data) +
-    geom_raster(aes(x=state, y=ires, fill=rgb(r, g, b))) +
+    geom_raster(aes(x=state, y=ires, fill=rgb(r, g, b)), hjust=0) +
     scale_fill_identity() +
+    scale_x_discrete() +
     xlab("state") +
     ylab("residue") +
-    xlim(1, length(states))
+    xlim(1, length(states)) +
+    theme_bw()
 }
