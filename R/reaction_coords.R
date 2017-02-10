@@ -1,12 +1,12 @@
 
-#' generate dihedrals, return updated project information
+#' generate dihedrals
 #' @param skipCA Vector of CA indices to be skipped. Default: first and last.
 #' @param ignoreCache Ignore cached files and recalculate in any case.
 #' @export
 generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
   .check.projectPath()
   # get project description
-  pd <- project()
+  pd <- projectInfo()
 
   if (length(pd$dihedrals) == 0 | ignoreCache) {
     filter.backbone <- function(pdb) {
@@ -14,7 +14,7 @@ generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
         pdb$atom$elety == "CA" |
         pdb$atom$elety == "C"
     }
-    pdb_ref <- bio3d::read.pdb(pd$ref[[1]])
+    pdb_ref <- bio3d::read.pdb(get.fullPath(pd$ref[[1]]))
     # correct for custom residue types
     pdb_ref$calpha <- pdb_ref$atom$elety == "CA"
     n_atoms <- length(pdb_ref$calpha)
@@ -35,18 +35,18 @@ generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
     })
     dih_indices <- do.call("c", dih_indices)
     # prepare index file to identify backbone-dihedral atoms
-    tmp_ndx <- "tmp_phipsi.ndx"
+    tmp_ndx <- get.fullPath("tmp_phipsi.ndx")
     unlink(tmp_ndx)
     write("[PhiPsi]", tmp_ndx)
     write(dih_indices, tmp_ndx, append=TRUE, ncolumns=4)
     # compute dihedrals
-    fname_dihedrals <- paste(pd$traj, ".dih", sep="")
+    fname_dihedrals <- get.fullPath(paste(pd$traj, ".dih", sep=""))
     fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
     unlink(fname_xvg)
     print("running GMX to generate dihedrals")
     system2(get.binary("gmx"), c("angle",
                                  " -f ",
-                                 pd$traj,
+                                 get.fullPath(pd$traj),
                                  " -n ",
                                  tmp_ndx,
                                  " -ov ",
@@ -73,6 +73,23 @@ generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
   .update()
 }
 
+#' generate cos/sin transformed dihedrals
+#' @export
+generate.cossin <- function(ignoreCache=FALSE) {
+  .check.projectPath()
+  # project description
+  pd <- projectInfo()
+
+  if (length(pd$dihedrals) == 0 | ignoreCache) {
+    #TODO
+  }
+
+  .update()
+}
+
+
+
+
 #' run dPCA+
 #'
 #' Runs a dPCA+ analysis for the given project.
@@ -85,7 +102,7 @@ generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
 run.dPCAplus <- function(corr=FALSE, ignoreCache=FALSE) {
   .check.projectPath()
   # get project information
-  pd <- project()
+  pd <- projectInfo()
   if (!("dihedrals" %in% names(pd)) | length(pd$dihedrals) == 0) {
     generate.dihedrals()
     init(get.fullPath())
@@ -115,32 +132,32 @@ run.dPCAplus <- function(corr=FALSE, ignoreCache=FALSE) {
     # run PCA
     if (corr) {
       params <- c("-f",
-                  pd$dihedrals,
+                  get.fullPath(pd$dihedrals),
                   "-p",
-                  pd$dPCAplus$projn,
+                  get.fullPath(pd$dPCAplus$projn),
                   "-c",
-                  pd$dPCAplus$covn,
+                  get.fullPath(pd$dPCAplus$covn),
                   "-v",
-                  pd$dPCAplus$vecn,
+                  get.fullPath(pd$dPCAplus$vecn),
                   "-l",
-                  pd$dPCAplus$valn,
+                  get.fullPath(pd$dPCAplus$valn),
                   "-s",
-                  pd$dPCAplus$statsn,
+                  get.fullPath(pd$dPCAplus$statsn),
                   "-P",
                   "-N")
     } else {
       params <- c("-f",
-                  pd$dihedrals,
+                  get.fullPath(pd$dihedrals),
                   "-p",
-                  pd$dPCAplus$proj,
+                  get.fullPath(pd$dPCAplus$proj),
                   "-c",
-                  pd$dPCAplus$cov,
+                  get.fullPath(pd$dPCAplus$cov),
                   "-v",
-                  pd$dPCAplus$vec,
+                  get.fullPath(pd$dPCAplus$vec),
                   "-l",
-                  pd$dPCAplus$val,
+                  get.fullPath(pd$dPCAplus$val),
                   "-s",
-                  pd$dPCAplus$stats,
+                  get.fullPath(pd$dPCAplus$stats),
                   "-P")
     }
     # run PCA
@@ -151,17 +168,15 @@ run.dPCAplus <- function(corr=FALSE, ignoreCache=FALSE) {
 }
 
 
+### TODO: caching for all functions below!
 
-#######
-# TODO: caching for all functions below!
-#######
 
 #' generate trajectory with C\eqn{\alpha} distances as coordinates
 #' @export
 generate.caDistances <- function(residue.mindist=4, residue.maxdist=NULL) {
   .check.projectPath()
   # get project description
-  pd <- project()
+  pd <- projectInfo()
 
   pdb <- bio3d::read.pdb(pd$ref)
   calpha_ndx <- pdb$atom$eleno[pdb$atom$elety == "CA"]
@@ -240,7 +255,7 @@ generate.caDistances <- function(residue.mindist=4, residue.maxdist=NULL) {
 run.caPCA <- function(residue.mindist=4, residue.maxdist=NULL, corr=FALSE) {
   .check.projectPath()
   # get project information
-  pd <- project()
+  pd <- projectInfo()
   ca_dist_fname <- caDistFilename(pd$traj,
                                   residue.mindist,
                                   min(residue.maxdist,
@@ -306,8 +321,11 @@ run.caPCA <- function(residue.mindist=4, residue.maxdist=NULL, corr=FALSE) {
 }
 
 #' select subspace projection
+#' @param coords Filename of coordinates.
+#' @param columns Select columns.
+#' @param output Output filename (default: NULL). If NULL, filename will be generated.
 #' @export
-select.reactionCoordinates <- function(coords, columns) {
+generate.reactionCoordinates <- function(coords, columns, output=NULL) {
   .check.projectPath()
   if (xor(is.list(coords), is.list(columns))) {
     stop("either coords and columns are both lists (of same length), or none is")
@@ -317,41 +335,63 @@ select.reactionCoordinates <- function(coords, columns) {
     columns <- list(columns)
   }
   # get project information
-  pd <- project()
-  # generate filenames
-  id <- length(pd$reactionCoords) + 1
-  bname <- "reaction_coords_"
-  desc_fname <- paste(bname, id, ".desc", sep="")
-  coords_fname <- paste(bname, id, ".coords", sep="")
+  pd <- projectInfo()
+  if (is.null(output)) {
+    # generate filenames
+    id <- length(pd$reactionCoords) + 1
+    output <- paste("reaction_coords_", id, sep="")
+    coords_fname <- paste(output, ".coords", sep="")
+  } else {
+    coords_fname <- output
+  }
+  desc_fname <- paste(output, ".desc", sep="")
 
-  # generate description
-  desc <- do.call(c, lapply(1:length(coords),
-                            function(i) {
-                              paste(coords[[i]],
-                                    paste(columns[[i]],
-                                          collapse=" "))
-                            }))
-  cat(desc, file=desc_fname, sep="\n")
 
-  # use awk, paste and bash to filter reaction coords
-  pipes <- do.call(c, lapply(1:length(coords), function(i) {
-    cols <- paste(paste("\\$", columns[[i]], sep=""), collapse=", ")
-    paste("<(",
-          get.binary("awk"),
-          "'{print",
-          cols,
-          "}'",
-          coords[[i]],
-          ")")
-  }))
-  cmd <- paste(paste(get.binary("bash"), " -c \"", sep=""),
-               get.binary("paste"),
-               "-d ' '",
-               paste(pipes, collapse=" "),
-               ">",
-               coords_fname,
-               "\"")
-  system(cmd)
+  if (file.exists(desc_fname) | file.exists(coords_fname)) {
+    warning("no reaction coordinates generated: file exists")
+  } else {
+    # generate description
+    desc <- do.call(c, lapply(1:length(coords),
+                              function(i) {
+                                paste(get.fullPath(coords[[i]]),
+                                      paste(columns[[i]],
+                                            collapse=" "))
+                              }))
+    cat(desc, file=desc_fname, sep="\n")
+
+    # use awk, paste and bash to filter reaction coords
+    pipes <- do.call(c, lapply(1:length(coords), function(i) {
+      cols <- paste(paste("\\$", columns[[i]], sep=""), collapse=", ")
+      paste("<(",
+            get.binary("awk"),
+            "'{print",
+            cols,
+            "}'",
+            coords[[i]],
+            ")")
+    }))
+    cmd <- paste(paste(get.binary("bash"), " -c \"", sep=""),
+                 get.binary("paste"),
+                 "-d ' '",
+                 paste(pipes, collapse=" "),
+                 ">",
+                 coords_fname,
+                 "\"")
+    system(cmd)
+  }
 
   .update()
+}
+
+#' filter a data set
+#'
+#' @param coords Filename of coordinates.
+#' @param filter Some integer N. If states=NULL (default),
+#'               every N-th frame will be selected.
+#'               If 'states' points to file, N is selected state.
+#' @param states Name of state trajectory. default: NULL, i.e. not used.
+#' @param output Filename of output. Default: NULL, i.e. construct a name.
+#' @export
+generate.filteredCoordinates <- function(coords, filter, states=NULL, output=NULL) {
+  #TODO
 }

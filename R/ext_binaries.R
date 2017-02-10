@@ -3,6 +3,7 @@
                           "vmd"="/usr/local/bin/vmd",
                           "fastpca"="/usr/local/bin/fastpca",
                           "clustering"="/usr/local/bin/clustering",
+                          "entropical"="/usr/local/bin/entropical",
                           "bash"="/bin/bash",
                           "awk"="/usr/bin/awk",
                           "paste"="/usr/bin/paste")

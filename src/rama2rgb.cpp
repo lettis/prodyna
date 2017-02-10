@@ -26,7 +26,7 @@ NumericVector rama2rgb(NumericVector phis
                           , phis.end());
   std::vector<float> v_psis(psis.begin()
                           , psis.end());
-  std::vector<float> rgb(3, 0.0);
+
   // color weight for given refernce value
   auto weight = [&](unsigned int i
                   , float ref_phi
@@ -41,11 +41,23 @@ NumericVector rama2rgb(NumericVector phis
     value = 1 - (std::sqrt(value) / scale);
     return value;
   };
-  for (unsigned int i=0; i < n; ++i) {
-    rgb[0] += weight(i, -120, 120);
-    rgb[1] += weight(i, -60, -60);
-    rgb[2] += weight(i, 60, 60);
+
+
+  unsigned int i;
+  float r=0;
+  float g=0;
+  float b=0;
+  #pragma omp parallel for\
+    default(none)\
+    private(i)\
+    firstprivate(n,weight)\
+    reduction(+:r,g,b)
+  for (i=0; i < n; ++i) {
+    r += weight(i, -120, 120);
+    g += weight(i, -60, -60);
+    b += weight(i, 60, 60);
   }
+  std::vector<float> rgb{r,g,b};
   for (float& clr: rgb) {
     clr /= n;
   }
