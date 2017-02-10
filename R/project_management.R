@@ -8,7 +8,7 @@
 #' get project information
 #'
 #' @export
-project <- function() {
+projectInfo <- function() {
   if (exists("project",
              envir=.project_cache,
              inherits=FALSE)) {
@@ -23,15 +23,18 @@ project <- function() {
 
 #' List reference structure files (.pdb)
 .list.reference <- function() {
-  list.files(pattern = "*.pdb")
+  list.files(get.fullPath(),
+             pattern = "*.pdb")
 }
 #' List trajectory files (.xtc)
 .list.traj <- function() {
-  list.files(pattern = "*.xtc$")
+  list.files(get.fullPath(),
+             pattern = "*.xtc$")
 }
 #' List files with dihedral angles (.dih)
 .list.dihedrals <- function() {
-  list.files(pattern = "*.dih$")
+  list.files(get.fullPath(),
+             pattern = "*.dih$")
 }
 #' List generic PCA files (cov, proj, etc.)
 .list.PCA <- function(file_pattern) {
@@ -39,7 +42,8 @@ project <- function() {
   suffix <- c("proj", "cov", "vec", "val", "stats")
   suffix <- paste(rep(suffix, 2), c("", "n"), sep="")
   for (s in suffix) {
-    PCA[[s]] <- list.files(pattern=paste(file_pattern,
+    PCA[[s]] <- list.files(get.fullPath(),
+                           pattern=paste(file_pattern,
                                          ".",
                                          s,
                                          "$",
@@ -54,7 +58,8 @@ project <- function() {
 }
 #' List C$_\alpha$ distance files
 .list.caDists <- function() {
-  list.files(pattern="*.dist_[[:digit:]]*_[[:digit:]]*$")
+  list.files(get.fullPath(),
+             pattern="*.dist_[[:digit:]]*_[[:digit:]]*$")
 }
 #' List specifically C$_\alpha$-distance PCA related files
 .list.caPCA <- function() {
@@ -70,16 +75,13 @@ project <- function() {
 }
 #' List files with filtered reaction coordinates
 .list.reactionCoords <- function() {
-  list.files(pattern = "reaction_coords_[[:digit:]]+.coords$")
+  list.files(get.fullPath(),
+             pattern = "reaction_coords_[[:digit:]]+.coords$")
 }
 
 .check.projectPath <- function() {
   if (exists("path", envir=.project_cache, inherits=FALSE)) {
     path <- get("path", envir=.project_cache)
-    if (getwd() != path) {
-      warning(.warnings$diverging_path)
-      setwd(path)
-    }
   } else {
     stop(.warnings$no_init)
   }
@@ -123,7 +125,7 @@ get.fullPath <- function(subpath="") {
     paste(text)
   }
 
-  pd <- project()
+  pd <- projectInfo()
 
   proj_summary <- ""
 
@@ -209,13 +211,13 @@ get.fullPath <- function(subpath="") {
     })
   }
 
-
+  readme_fname <- paste(get.fullPath(), "README.Rmd", sep="/")
   cat(paste(c(proj_summary, ""), sep="", collapse="\n"),
-      file="README.Rmd")
+      file=readme_fname)
   opts <- list()
   opts["toc"] <- TRUE
   sink("/dev/null")
-  suppressMessages(rmarkdown::render("README.Rmd",
+  suppressMessages(rmarkdown::render(readme_fname,
                                      "pdf_document",
                                      output_options = opts))
   sink()

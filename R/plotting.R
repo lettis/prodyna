@@ -18,9 +18,8 @@
 #' @export
 plt.ramachandran <- function(resno) {
   .check.projectPath()
-  pd <- project()
   suppressMessages(require(ggplot2))
-  dih <- read.dihedrals(pd, resno)
+  dih <- read.dihedrals(resno)
   phi <- dih[[paste("phi", resno, sep="")]]
   psi <- dih[[paste("psi", resno, sep="")]]
   p <- ggplot(data.frame(phi, psi)) +
@@ -29,7 +28,9 @@ plt.ramachandran <- function(resno) {
                          trans=.reverselog_trans()) +
     xlim(-180,180) +
     ylim(-180,180) +
-    theme(legend.position = "none")
+    theme_bw() +
+    theme(legend.position = "none") +
+    ggtitle(paste("residue", resno))
 
   p
 }
@@ -152,7 +153,7 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
 #' plot 2d-proj for given PCA
 #'
 #' plots a 2d free energy landscape (in kT) for the given PCA projection.
-#' @param pca Either a PCA reference from the project (e.g. prodyna::project()$dPCAplus), or a filename.
+#' @param pca Either a PCA reference from the project (e.g. prodyna::projectInfo()$dPCAplus), or a filename.
 #' @param dim1 First dimension to plot (default: 1).
 #' @param dim2 Second dimension to plot (default: 2).
 #' @param corr Plot projections of correlation based PCA. Only works with project reference (default: FALSE).
@@ -198,8 +199,9 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE) {
 #' Takes all available PCAs and plots their cumulative fluctuations in a single plot.
 #' @export
 plt.cumFlucts <- function() {
+  suppressMessages(require(ggplot2))
   .check.projectPath()
-  pd <- project()
+  pd <- projectInfo()
 
   #TODO different caPCAs!!!
 
@@ -208,17 +210,17 @@ plt.cumFlucts <- function() {
                   "dPCA+ (corr)",
                   "caPCA",
                   "caPCA (corr)")
-  cfs_filenames <- c(pd$dPCAplus$val,
-                     pd$dPCAplus$valn,
-                     pd$caPCA$val,
-                     pd$caPCA$valn)
+  cfs_filenames <- c(get.fullPath(pd$dPCAplus$val),
+                     get.fullPath(pd$dPCAplus$valn),
+                     get.fullPath(pd$caPCA$val),
+                     get.fullPath(pd$caPCA$valn))
   max_length <- 0
   cfs <- list()
   cfs_labels_selected <- list()
   for (i in 1:length(cfs_labels)) {
     f <- cfs_filenames[i]
-    if (file.exists(f)) {
-      cf <- fread(f)$V1
+    if (file.exists(f) & !dir.exists(f)) {
+      cf <- data.table::fread(f, verbose=FALSE, showProgress=FALSE)$V1
       cf <- cumsum(cf/sum(cf))
       max_length <- max(max_length, length(cf))
       cfs[[i]] <- data.frame(1:max_length, cf, cfs_labels[[i]])
@@ -233,7 +235,9 @@ plt.cumFlucts <- function() {
   ggplot(df) +
     geom_line(aes(x=PC, y=cumfluct, color=method),
               size=2) +
-    xlim(1, max_length)
+    scale_x_discrete(limits=1:max_length) +
+    #xlim(1, max_length) +
+    theme_bw()
 }
 
 ## plot autocorrelation of observables
@@ -288,7 +292,7 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
   suppressMessages(require(ggplot2))
   if (is.null(dihedrals)) {
     .check.projectPath()
-    pd <- project()
+    pd <- projectInfo()
     dihedrals <- pd$dihedrals
   }
   dih <- data.table::fread(dihedrals,
@@ -315,7 +319,6 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
   ggplot(rc_data) +
     geom_raster(aes(x=state, y=ires, fill=rgb(r, g, b)), hjust=0) +
     scale_fill_identity() +
- #   scale_x_discrete() +
     xlab("state") +
     ylab("residue") +
     xlim(1, length(states)) +

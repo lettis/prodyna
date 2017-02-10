@@ -6,14 +6,19 @@
 read.dihedrals <- function(resno=NULL) {
   .check.projectPath()
   # get project information
-  pd <- project()
+  pd <- projectInfo()
   if (is.null(resno)) {
-    dih <- data.table::fread(pd$dihedrals)
+    dih <- data.table::fread(get.fullPath(pd$dihedrals),
+                             verbose=FALSE,
+                             showProgress=FALSE)
     n_dih <- dim(dih)[2]/2
     res_ndx <- do.call("c", lapply(2:(n_dih+1), function(i){rep(i,2)}))
   } else {
     # TODO resno as vector?
-    dih <- data.table::fread(pd$dihedrals, select=c(2*(resno-1)-1, 2*(resno-1)))
+    dih <- data.table::fread(get.fullPath(pd$dihedrals),
+                             select=c(2*(resno-1)-1, 2*(resno-1)),
+                             verbose=FALSE,
+                             showProgress=FALSE)
     res_ndx <- c(resno, resno)
   }
   colnames(dih) <- paste(c("phi", "psi"), res_ndx, sep="")
@@ -26,7 +31,7 @@ read.dihedrals <- function(resno=NULL) {
 #' @param corr Use correlation-based PCA
 #' @return cumulative fluctuations
 #' @examples
-#' p <- prodyna::project()
+#' p <- prodyna::projectInfo()
 #' prodyna::read.cumFlucts(p$dPCAplus)
 #' prodyna::read.cumFlucts(p$caPCA$dist_3_6, corr=TRUE)
 #' @export

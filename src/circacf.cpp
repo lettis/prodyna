@@ -27,7 +27,6 @@ NumericVector circacf(NumericVector x, unsigned int tau_max) {
   }
   double two_pi = 2 * M_PI;
   double mu = atan2(mu_s/n, mu_c/n);
-  std::cout << "mu: " << mu << std::endl;
   // shift coordinates using periodic boundary corrections
   for (unsigned int i=0; i < n; ++i) {
     x[i] = x[i] - mu;
