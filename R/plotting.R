@@ -269,11 +269,11 @@ plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) 
   colnames(acf_data) <- c("t", columns)
   acf_data <- melt(acf_data, id.vars=c("t"))
 
-  ggplot(acf_data) +
-    geom_line(aes(x=t, y=value, color=variable)) +
-    scale_y_log10(limits=c(0.1, 1)) +
-    xlab(x_lbl) +
-    ylab("ACF")
+  plt <- ggplot(acf_data) +
+           geom_line(aes(x=t, y=value, color=variable)) +
+           scale_y_log10(limits=c(0.1, 1)) +
+           xlab(x_lbl) +
+           ylab("ACF")
 }
 
 #' plot state geometries as Ramacolor plots
