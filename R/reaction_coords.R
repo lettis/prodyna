@@ -74,20 +74,73 @@ generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
 }
 
 #' generate cos/sin transformed dihedrals
+#' @param dihedrals Filename of dihedrals. If NULL (default), choose from project management.
+#' @param ignoreCache If set to true, recompute even is output already exists. default: FALSE
 #' @export
-generate.cossin <- function(ignoreCache=FALSE) {
+generate.cossinTransform <- function(dihedrals=NULL, ignoreCache=FALSE) {
   .check.projectPath()
   # project description
   pd <- projectInfo()
-
-  if (length(pd$dihedrals) == 0 | ignoreCache) {
-    #TODO
+  if (is.null(dihedrals)) {
+    dihedrals <- pd$dihedrals
   }
-
+  if ( ! file.exists(dihedrals)) {
+    dihedrals <- get.fullPath(dihedrals)
+  }
+  output <- paste(dihedrals, "cossin", sep=".")
+  if (( ! file.exists(output)) | ignoreCache) {
+    streamed_cossin_transform(dihedrals, output)
+  }
   .update()
 }
 
 
+#' run PCA on given coordinates
+#'
+#' @param coords Filename of coordinates.
+#' @param corr Perform PCA on correlations instead of covariance. default: FALSE.
+#' @param ignoreCache Recompute, even if output files already exist. default: FALSE.
+#' @param additional_params Vector with additional parameters for 'fastpca'. default: NULL.
+#' @export
+run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additional_params=NULL) {
+  if ( ! file.exists(coords)) {
+    coords <- get.fullPath(coords)
+  }
+  results <- c("proj", "vec", "val", "cov", "stats")
+  if (corr) {
+    results <- paste(results, "n", sep="")
+  }
+  results <- paste(coords, results, sep=".")
+  # results already computed?
+  cached_results_missing <- ( ! all(file.exists(results)))
+  if (ignoreCache | cached_results_missing) {
+    # setup 'fastpca' parameters
+    params <- c("-f", "-p", "-c", "-v", "-l", "-s")
+    params <- c(rbind(params, c(coords, results)))
+    if (corr) {
+      params <- c(params, "-N")
+    }
+    params <- c(params, additional_params)
+    # run PCA
+    system2(get.binary("fastpca"), args=params)
+  }
+  .update()
+}
+
+
+
+#' run dPCA on cos/sin transformed angles
+#'
+#' @param cossin Filename of cos/sin transformed data.
+#' @param corr Use correlation instead of covariance.
+#'             Effectively whitens the data before doing analysis.
+#' @param ignoreCache Ignore cached files and recalculate in any case.
+#' @export
+run.dPCA <- function(cossin, corr=FALSE, ignoreCache=FALSE) {
+  run.PCA(coords=cossin,
+          corr=corr,
+          ignoreCache=ignoreCache)
+}
 
 
 #' run dPCA+
@@ -96,75 +149,31 @@ generate.cossin <- function(ignoreCache=FALSE) {
 #' If dihedrals have not been generated yet, they will be automatically
 #' using the default settings (remove first and last C\eqn{\alpha} to get
 #' rid of the end-caps).
-#' @param corr Use correlation instead of covariance. Effectively whitens the data before doing analysis.
+#' @param dihedrals Filename of dihedrals. If NULL (default), try to infer
+#'                  from project management.
+#' @param corr Use correlation instead of covariance.
+#'             Effectively whitens the data before doing analysis.
 #' @param ignoreCache Ignore cached files and recalculate in any case.
 #' @export
-run.dPCAplus <- function(corr=FALSE, ignoreCache=FALSE) {
+run.dPCAplus <- function(dihedrals=NULL, corr=FALSE, ignoreCache=FALSE) {
   .check.projectPath()
-  # get project information
-  pd <- projectInfo()
-  if (!("dihedrals" %in% names(pd)) | length(pd$dihedrals) == 0) {
-    generate.dihedrals()
-    init(get.fullPath())
+  if (is.null(dihedrals)) {
+    # get project information
+    pd <- projectInfo()
+    if (!("dihedrals" %in% names(pd)) | length(pd$dihedrals) == 0) {
+      generate.dihedrals()
+      init(get.fullPath())
+    }
+    dihedrals <- pd$dihedrals
   }
-
-  dpca_keys <- names(pd$dPCAplus)
-  missing_files <- any(do.call(c, lapply(dpca_keys[grep("*n$",
-                                                        dpca_keys,
-                                                        invert=(!corr))],
-                                         function(x) {length(pd$dPCAplus[[x]]) == 0})))
-  if (is.null(pd$dPCAplus) |
-      missing_files |
-      ignoreCache) {
-    pd$dPCAplus <- list()
-    if (corr) {
-      postfix <- "n"
-    } else {
-      postfix <- ""
-    }
-    for (name in c("proj", "vec", "val", "cov", "stats")) {
-      pd$dPCAplus[[paste(name, postfix, sep="")]] <- paste(pd$dihedrals,
-                                                           ".",
-                                                           name,
-                                                           postfix,
-                                                           sep="")
-    }
-    # run PCA
-    if (corr) {
-      params <- c("-f",
-                  get.fullPath(pd$dihedrals),
-                  "-p",
-                  get.fullPath(pd$dPCAplus$projn),
-                  "-c",
-                  get.fullPath(pd$dPCAplus$covn),
-                  "-v",
-                  get.fullPath(pd$dPCAplus$vecn),
-                  "-l",
-                  get.fullPath(pd$dPCAplus$valn),
-                  "-s",
-                  get.fullPath(pd$dPCAplus$statsn),
-                  "-P",
-                  "-N")
-    } else {
-      params <- c("-f",
-                  get.fullPath(pd$dihedrals),
-                  "-p",
-                  get.fullPath(pd$dPCAplus$proj),
-                  "-c",
-                  get.fullPath(pd$dPCAplus$cov),
-                  "-v",
-                  get.fullPath(pd$dPCAplus$vec),
-                  "-l",
-                  get.fullPath(pd$dPCAplus$val),
-                  "-s",
-                  get.fullPath(pd$dPCAplus$stats),
-                  "-P")
-    }
-    # run PCA
-    system2(get.binary("fastpca"), args=params)
+  # try to find dihedrals inside project if filename is not fully qualified
+  if ( ! file.exists(dihedrals)) {
+    dihedrals <- get.fullPath(dihedrals)
   }
-
-  .update()
+  run.PCA(coords=dihedrals,
+          corr=corr,
+          ignoreCache=ignoreCache,
+          additional_params = c("-P"))
 }
 
 
@@ -385,13 +394,48 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
 
 #' filter a data set
 #'
-#' @param coords Filename of coordinates.
-#' @param filter Some integer N. If states=NULL (default),
+#' @param coords Filename of coordinates (ASCII data)
+#' @param filter Some integer N. If 'states' is NULL (default),
 #'               every N-th frame will be selected.
 #'               If 'states' points to file, N is selected state.
 #' @param states Name of state trajectory. default: NULL, i.e. not used.
-#' @param output Filename of output. Default: NULL, i.e. construct a name.
+#' @param output Filename of output. Default: NULL,
+#'               i.e. construct a name from input parameters.
+#' @param ignoreCache Recompute even if results already exist.
 #' @export
-generate.filteredCoordinates <- function(coords, filter, states=NULL, output=NULL) {
-  #TODO
+generate.filteredCoordinates <- function(coords, filter, states=NULL, output=NULL, ignoreCache=FALSE) {
+  if ( ! file.exists(coords)) {
+    coords <- get.fullPath(coords)
+  }
+  if (is.null(states)) {
+    if (is.null(output)) {
+      output <- paste(coords, ".every", filter, sep="")
+    }
+    cmd <- paste(get.binary("awk"),
+                 " 'NR % ",
+                 filter,
+                 " == 0 {print $0}' ",
+                 coords,
+                 " > ",
+                 output,
+                 sep="")
+  } else {
+    if (is.null(output)) {
+      output <- paste(coords, ".state_", filter, sep="")
+    }
+    cmd <- paste(get.binary("clustering"),
+                 " filter -s ",
+                 states,
+                 " -c ",
+                 coords,
+                 " -o ",
+                 output,
+                 " -S ",
+                 filter,
+                 sep="")
+  }
+  if ( ( ! file.exists(output)) | ignoreCache) {
+    # run filter function
+    system(cmd)
+  }
 }

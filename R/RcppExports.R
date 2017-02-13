@@ -30,3 +30,12 @@ rama2rgb <- function(phis, psis) {
     .Call('prodyna_rama2rgb', PACKAGE = 'prodyna', phis, psis)
 }
 
+#' computes a cos/sin transform of angles on the fly
+#'
+#' @param fname_in Input filename with angles.
+#' @param fname_out Output filename with cos/sin transformed values.
+#' @param is_deg Angles are expressed in degrees. default: true.
+streamed_cossin_transform <- function(fname_in, fname_out, is_deg = TRUE) {
+    invisible(.Call('prodyna_streamed_cossin_transform', PACKAGE = 'prodyna', fname_in, fname_out, is_deg))
+}
+

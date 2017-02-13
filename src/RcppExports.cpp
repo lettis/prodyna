@@ -41,3 +41,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// streamed_cossin_transform
+void streamed_cossin_transform(std::string fname_in, std::string fname_out, bool is_deg);
+RcppExport SEXP prodyna_streamed_cossin_transform(SEXP fname_inSEXP, SEXP fname_outSEXP, SEXP is_degSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type fname_in(fname_inSEXP);
+    Rcpp::traits::input_parameter< std::string >::type fname_out(fname_outSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_deg(is_degSEXP);
+    streamed_cossin_transform(fname_in, fname_out, is_deg);
+    return R_NilValue;
+END_RCPP
+}
