@@ -8,3 +8,7 @@ It provides
     + FastPCA (www.github.com/lettis/FastPCA)
     + Clustering (www.github.com/lettis/Clustering)
 * advanced plotting tailored for protein simulation data
+
+
+Package reference: https://lettis.github.io/prodyna/
+
