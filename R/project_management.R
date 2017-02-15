@@ -205,9 +205,12 @@ get.fullPath <- function(subpath="") {
     lapply(pd$reactionCoords, function(fname) {
       proj_summary <<- c(proj_summary,
                          sec(fname, level="2"),
-                         txt(readLines(paste(strsplit(fname, "\\.")[[1]][1],
-                                             "desc",
-                                             sep="."))))
+                         txt(
+                           readLines(
+                             get.fullPath(
+                               paste(strsplit(fname, "\\.")[[1]][1],
+                                     "desc",
+                                     sep=".")))))
     })
   }
 
