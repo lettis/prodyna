@@ -88,6 +88,21 @@ projectInfo <- function() {
   path
 }
 
+
+.check.filePath <- function(filename) {
+  filename_orig <- filename
+  if ( ! file.exists(filename)) {
+    filename <- get.fullPath(filename)
+  }
+  if ( ! file.exists(filename)) {
+    stop(paste("file",
+               filename_orig,
+               "does not exist; neither in given path, nor in project dir."))
+  }
+  filename
+}
+
+
 #' returns normalized path for files in project
 #' @param subpath Path inside project directory. Will be constructed to full path from parts if given as a vector. If empty string (default), simply returns to project directory itself.
 #' @export

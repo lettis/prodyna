@@ -115,7 +115,7 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additional_params=NUL
   cached_results_missing <- ( ! all(file.exists(results)))
   if (ignoreCache | cached_results_missing) {
     # setup 'fastpca' parameters
-    params <- c("-f", "-p", "-c", "-v", "-l", "-s")
+    params <- c("-f", "-p", "-v", "-l", "-c", "-s")
     params <- c(rbind(params, c(coords, results)))
     if (corr) {
       params <- c(params, "-N")
@@ -330,8 +330,9 @@ run.caPCA <- function(residue.mindist=4, residue.maxdist=NULL, corr=FALSE) {
 }
 
 #' select subspace projection
-#' @param coords Filename of coordinates.
-#' @param columns Select columns.
+#' @param coords Either filename or list of filenames of coordinates.
+#' @param columns Select columns. Either single vector or
+#'                list of vectors as selection per coord file.
 #' @param output Output filename (default: NULL). If NULL, filename will be generated.
 #' @export
 generate.reactionCoordinates <- function(coords, columns, output=NULL) {
