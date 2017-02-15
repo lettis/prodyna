@@ -2,7 +2,9 @@ Package: prodyna
 Type: Package
 Title: Protein Dynamics Analysis
 Version: 0.1.0
-Author: Florian Sittel
+Authors@R: person("Florian", "Sittel",
+                  email="sittel@lettis.net",
+                  role=c("aut", "cre"))
 Maintainer: Florian Sittel <sittel@lettis.net>
 Description: prodyna has an extensive collection of functions tailored for
     protein dynamics analysis. It acts as a wrapper to underlying high-performance
