@@ -19,7 +19,11 @@
 #'                  dihedrals from project management.
 #' @export
 plt.ramachandran <- function(resno, dihedrals=NULL) {
-  .check.projectPath()
+  if (is.null(dihedrals)) {
+    .check.projectPath()
+    p <- projectInfo()
+    dihedrals <- p$dihedrals
+  }
   suppressMessages(require(ggplot2))
   dih <- read.dihedrals(resno, dihedrals)
   phi <- dih[[paste("phi", resno, sep="")]]
