@@ -348,7 +348,7 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
   if (is.null(output)) {
     # generate filenames
     id <- length(pd$reactionCoords) + 1
-    output <- paste("reaction_coords_", id, sep="")
+    output <- get.fullPath(paste("reaction_coords_", id, sep=""))
     coords_fname <- paste(output, ".coords", sep="")
   } else {
     coords_fname <- output
@@ -359,10 +359,11 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
   if (file.exists(desc_fname) | file.exists(coords_fname)) {
     warning("no reaction coordinates generated: file exists")
   } else {
+    coords <- lapply(coords, function(c) {get.fullPath(c)})
     # generate description
     desc <- do.call(c, lapply(1:length(coords),
                               function(i) {
-                                paste(get.fullPath(coords[[i]]),
+                                paste(coords[[i]],
                                       paste(columns[[i]],
                                             collapse=" "))
                               }))

@@ -15,11 +15,13 @@
 
 #' plot Ramachandran plot
 #' @param resno Residue number.
+#' @param dihedrals File with dihedrals. If NULL (default), choose default
+#'                  dihedrals from project management.
 #' @export
-plt.ramachandran <- function(resno) {
+plt.ramachandran <- function(resno, dihedrals=NULL) {
   .check.projectPath()
   suppressMessages(require(ggplot2))
-  dih <- read.dihedrals(resno)
+  dih <- read.dihedrals(resno, dihedrals)
   phi <- dih[[paste("phi", resno, sep="")]]
   psi <- dih[[paste("psi", resno, sep="")]]
   p <- ggplot(data.frame(phi, psi)) +
@@ -257,6 +259,9 @@ plt.cumFlucts <- function() {
 plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) {
   suppressMessages(require(ggplot2))
   suppressMessages(require(data.table))
+  if ( ! file.exists(coords)) {
+    coords <- get.fullPath(coords)
+  }
   acf_data <- stats.autocor(coords,
                             columns = columns,
                             lag.max = lag.max,
