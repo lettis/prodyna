@@ -163,8 +163,10 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
 #' @param dim1 First dimension to plot (default: 1).
 #' @param dim2 Second dimension to plot (default: 2).
 #' @param corr Plot projections of correlation based PCA. Only works with project reference (default: FALSE).
+#' @param diverge Use a diverging color scale to emphasize differences.
+#'                Default is FALSE.
 #' @export
-plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE) {
+plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
   suppressMessages(require(data.table))
   suppressMessages(require(ggplot2))
 
@@ -185,6 +187,14 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE) {
     }
   } else {
     proj <- file_read(pca)
+  }
+
+  if (diverge) {
+    # diverging color scale
+    color_palette <- "RdYlBu"
+  } else {
+    # linear color scale
+    color_palette <- "YlGnBu"
   }
 
   ggplot(proj) +
