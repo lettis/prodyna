@@ -69,12 +69,13 @@ plt.matrix <- function(x, diverge = FALSE, fancy = FALSE) {
   # plot rows along y, columns along x
   p <- ggplot(reshape2::melt(M)) +
           geom_raster(aes(y=Var1, x=Var2, fill=value)) +
-          scale_y_reverse(breaks=1:nrow(M)) +
-          scale_x_continuous(breaks=1:ncol(M)) +
+          scale_y_reverse(breaks=1:nrow(M), expand=c(0,0)) +
+          scale_x_continuous(breaks=1:ncol(M), expand=c(0,0)) +
           scale_fill_distiller(palette=clr_palette) +
           theme_bw() +
           theme(axis.title.x=element_blank(),
-                axis.title.y=element_blank())
+                axis.title.y=element_blank(),
+                legend.title = element_blank())
 
   if (fancy) {
     p <- ggplotly(p, tooltip="value") %>%
