@@ -217,7 +217,7 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
                aes(x=V1,
                    y=V2,
                    fill=-log(..count../max(..count..)))) +
-    scale_fill_distiller(palette="YlGnBu",
+    scale_fill_distiller(palette=color_palette,
                          guide=guide_legend(title="[kT]",
                                             reverse=TRUE)) +
     xlab(paste("PC", dim1)) +
