@@ -88,6 +88,11 @@ plt.matrix <- function(x, diverge = FALSE, fancy = FALSE) {
 
 
 #' plot 2d-proj, 1d-proj and eigenvector content for given PCA
+#' @param pca List with filenames, pointing to projections and eigenvectors.
+#'            Format (cov): "proj": "coords.proj", "vec": "coords.vec".
+#'            Format (cov): "projn": "coords.projn", "vecn": "coords.vecn".
+#' @param pcs Vector of PC indices.
+#' @param corr Use correlation-based PCA (default: FALSE).
 #' @export
 plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
   .check.projectPath()
@@ -95,13 +100,23 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
   suppressMessages(require(GGally))
   suppressMessages(require(ggplot2))
   if (corr) {
-    .check.filesExist(c(pca$projn, pca$vecn))
-    proj <- fread(pca$projn, select=pcs, verbose=FALSE, showProgress=FALSE)
-    vecs <- fread(pca$vecn, select=pcs, verbose=FALSE, showProgress=FALSE)
+    proj <- fread(.check.filePath(pca$projn),
+                  select=pcs,
+                  verbose=FALSE,
+                  showProgress=FALSE)
+    vecs <- fread(.check.filePath(pca$vecn),
+                  select=pcs,
+                  verbose=FALSE,
+                  showProgress=FALSE)
   } else {
-    .check.filesExist(c(pca$proj, pca$vec))
-    proj <- fread(pca$proj, select=pcs, verbose=FALSE, showProgress=FALSE)
-    vecs <- fread(pca$vec, select=pcs, verbose=FALSE, showProgress=FALSE)
+    proj <- fread(.check.filePath(pca$proj),
+                  select=pcs,
+                  verbose=FALSE,
+                  showProgress=FALSE)
+    vecs <- fread(.check.filePath(pca$vec),
+                  select=pcs,
+                  verbose=FALSE,
+                  showProgress=FALSE)
   }
   vec_names <- names(vecs)
   n_dih <- dim(vecs)[1]
