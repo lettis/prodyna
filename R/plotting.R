@@ -47,8 +47,10 @@ plt.ramachandran <- function(resno, dihedrals=NULL) {
 #' @param x Either a filename with the matrix in table format or a matrix object.
 #' @param diverge Use diverging color palette.
 #' @param fancy Fancy plotting with interactive elements (default: FALSE).
+#' @param zlim Limits for color scale, given as 2D vector.
+#'             default: NULL, i.e. min/max values of matrix.
 #' @export
-plt.matrix <- function(x, diverge = FALSE, fancy = FALSE) {
+plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   suppressMessages(require(ggplot2))
   suppressMessages(require(dplyr))
   suppressMessages(require(plotly))
@@ -71,12 +73,18 @@ plt.matrix <- function(x, diverge = FALSE, fancy = FALSE) {
           geom_raster(aes(y=Var1, x=Var2, fill=value)) +
           scale_y_reverse(breaks=1:nrow(M), expand=c(0,0)) +
           scale_x_continuous(breaks=1:ncol(M), expand=c(0,0)) +
-          scale_fill_distiller(palette=clr_palette) +
           theme_bw() +
           theme(axis.title.x=element_blank(),
                 axis.title.y=element_blank(),
                 legend.title = element_blank())
-
+  # set z-axis limits (if given)
+  if (is.null(zlim)) {
+    p <- p + scale_fill_distiller(palette=clr_palette)
+  } else {
+    p <- p + scale_fill_distiller(palette=clr_palette,
+                                  limits=zlim)
+  }
+  # fancy plotting for Rnotebooks
   if (fancy) {
     p <- ggplotly(p, tooltip="value") %>%
           config(displayModeBar=FALSE) %>%
