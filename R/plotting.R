@@ -367,3 +367,44 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
     xlim(1, length(states)) +
     theme_bw()
 }
+
+
+#' plot state trajectory comparison
+#'
+#' Compare state trajectories based on their overlap of state populations.
+#' Trajectories must be of same length and must have identical state labels.
+#'
+#' @param traj1 Either a vector encoding first state trajectory or
+#'              a filename pointing to the trajectory.
+#' @param traj2 Either a vector encoding second state trajectory or
+#'              a filename pointing to the trajectory.
+#' @export
+plt.stateTrajComparison <- function(traj1, traj2) {
+  check_traj <- function(traj) {
+    if (is.character(traj)) {
+      traj <- data.table::fread(traj,
+                                verbose=FALSE,
+                                showProgress=FALSE)[[1]]
+    }
+    traj
+  }
+  traj1 <- check_traj(traj1)
+  traj2 <- check_traj(traj2)
+  states <- sort(unique(c(traj1, traj2)))
+  n_states <- length(states)
+  overlap <- matrix(nrow=n_states, ncol=n_states)
+  idx <- seq(1, n_states)
+  for (i in idx) {
+    state_is_i <- traj2[(traj1==states[i])]
+    for (j in idx) {
+      state_is_ij <- (state_is_i == states[j])
+      overlap[i,j] <- sum(state_is_ij)
+    }
+  }
+  rownames(overlap) <- paste("", states)
+  colnames(overlap) <- paste(" ", states)
+  #TODO: nicer plot, no scaling, etc
+  circlize::chordDiagram(overlap,
+                         grid.col=c(rainbow(n_states),
+                                    rep("black", n_states)))
+}
