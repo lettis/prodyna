@@ -15,11 +15,17 @@
 
 #' plot Ramachandran plot
 #' @param resno Residue number.
+#' @param dihedrals File with dihedrals. If NULL (default), choose default
+#'                  dihedrals from project management.
 #' @export
-plt.ramachandran <- function(resno) {
-  .check.projectPath()
+plt.ramachandran <- function(resno, dihedrals=NULL) {
+  if (is.null(dihedrals)) {
+    .check.projectPath()
+    p <- projectInfo()
+    dihedrals <- p$dihedrals
+  }
   suppressMessages(require(ggplot2))
-  dih <- read.dihedrals(resno)
+  dih <- read.dihedrals(resno, dihedrals)
   phi <- dih[[paste("phi", resno, sep="")]]
   psi <- dih[[paste("psi", resno, sep="")]]
   p <- ggplot(data.frame(phi, psi)) +
@@ -41,8 +47,10 @@ plt.ramachandran <- function(resno) {
 #' @param x Either a filename with the matrix in table format or a matrix object.
 #' @param diverge Use diverging color palette.
 #' @param fancy Fancy plotting with interactive elements (default: FALSE).
+#' @param zlim Limits for color scale, given as 2D vector.
+#'             default: NULL, i.e. min/max values of matrix.
 #' @export
-plt.matrix <- function(x, diverge = FALSE, fancy = FALSE) {
+plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   suppressMessages(require(ggplot2))
   suppressMessages(require(dplyr))
   suppressMessages(require(plotly))
@@ -63,13 +71,20 @@ plt.matrix <- function(x, diverge = FALSE, fancy = FALSE) {
   # plot rows along y, columns along x
   p <- ggplot(reshape2::melt(M)) +
           geom_raster(aes(y=Var1, x=Var2, fill=value)) +
-          scale_y_reverse(breaks=1:nrow(M)) +
-          scale_x_continuous(breaks=1:ncol(M)) +
-          scale_fill_distiller(palette=clr_palette) +
+          scale_y_reverse(breaks=1:nrow(M), expand=c(0,0)) +
+          scale_x_continuous(breaks=1:ncol(M), expand=c(0,0)) +
           theme_bw() +
           theme(axis.title.x=element_blank(),
-                axis.title.y=element_blank())
-
+                axis.title.y=element_blank(),
+                legend.title = element_blank())
+  # set z-axis limits (if given)
+  if (is.null(zlim)) {
+    p <- p + scale_fill_distiller(palette=clr_palette)
+  } else {
+    p <- p + scale_fill_distiller(palette=clr_palette,
+                                  limits=zlim)
+  }
+  # fancy plotting for Rnotebooks
   if (fancy) {
     p <- ggplotly(p, tooltip="value") %>%
           config(displayModeBar=FALSE) %>%
@@ -82,6 +97,11 @@ plt.matrix <- function(x, diverge = FALSE, fancy = FALSE) {
 
 
 #' plot 2d-proj, 1d-proj and eigenvector content for given PCA
+#' @param pca List with filenames, pointing to projections and eigenvectors.
+#'            Format (cov): "proj": "coords.proj", "vec": "coords.vec".
+#'            Format (cov): "projn": "coords.projn", "vecn": "coords.vecn".
+#' @param pcs Vector of PC indices.
+#' @param corr Use correlation-based PCA (default: FALSE).
 #' @export
 plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
   .check.projectPath()
@@ -89,13 +109,23 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
   suppressMessages(require(GGally))
   suppressMessages(require(ggplot2))
   if (corr) {
-    .check.filesExist(c(pca$projn, pca$vecn))
-    proj <- fread(pca$projn, select=pcs, verbose=FALSE, showProgress=FALSE)
-    vecs <- fread(pca$vecn, select=pcs, verbose=FALSE, showProgress=FALSE)
+    proj <- fread(.check.filePath(pca$projn),
+                  select=pcs,
+                  verbose=FALSE,
+                  showProgress=FALSE)
+    vecs <- fread(.check.filePath(pca$vecn),
+                  select=pcs,
+                  verbose=FALSE,
+                  showProgress=FALSE)
   } else {
-    .check.filesExist(c(pca$proj, pca$vec))
-    proj <- fread(pca$proj, select=pcs, verbose=FALSE, showProgress=FALSE)
-    vecs <- fread(pca$vec, select=pcs, verbose=FALSE, showProgress=FALSE)
+    proj <- fread(.check.filePath(pca$proj),
+                  select=pcs,
+                  verbose=FALSE,
+                  showProgress=FALSE)
+    vecs <- fread(.check.filePath(pca$vec),
+                  select=pcs,
+                  verbose=FALSE,
+                  showProgress=FALSE)
   }
   vec_names <- names(vecs)
   n_dih <- dim(vecs)[1]
@@ -157,8 +187,10 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
 #' @param dim1 First dimension to plot (default: 1).
 #' @param dim2 Second dimension to plot (default: 2).
 #' @param corr Plot projections of correlation based PCA. Only works with project reference (default: FALSE).
+#' @param diverge Use a diverging color scale to emphasize differences.
+#'                Default is FALSE.
 #' @export
-plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE) {
+plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
   suppressMessages(require(data.table))
   suppressMessages(require(ggplot2))
 
@@ -181,12 +213,20 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE) {
     proj <- file_read(pca)
   }
 
+  if (diverge) {
+    # diverging color scale
+    color_palette <- "RdYlBu"
+  } else {
+    # linear color scale
+    color_palette <- "YlGnBu"
+  }
+
   ggplot(proj) +
     geom_bin2d(bins=200,
                aes(x=V1,
                    y=V2,
                    fill=-log(..count../max(..count..)))) +
-    scale_fill_distiller(palette="YlGnBu",
+    scale_fill_distiller(palette=color_palette,
                          guide=guide_legend(title="[kT]",
                                             reverse=TRUE)) +
     xlab(paste("PC", dim1)) +
@@ -257,6 +297,9 @@ plt.cumFlucts <- function() {
 plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) {
   suppressMessages(require(ggplot2))
   suppressMessages(require(data.table))
+  if ( ! file.exists(coords)) {
+    coords <- get.fullPath(coords)
+  }
   acf_data <- stats.autocor(coords,
                             columns = columns,
                             lag.max = lag.max,
@@ -323,4 +366,45 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
     ylab("residue") +
     xlim(1, length(states)) +
     theme_bw()
+}
+
+
+#' plot state trajectory comparison
+#'
+#' Compare state trajectories based on their overlap of state populations.
+#' Trajectories must be of same length and must have identical state labels.
+#'
+#' @param traj1 Either a vector encoding first state trajectory or
+#'              a filename pointing to the trajectory.
+#' @param traj2 Either a vector encoding second state trajectory or
+#'              a filename pointing to the trajectory.
+#' @export
+plt.stateTrajComparison <- function(traj1, traj2) {
+  check_traj <- function(traj) {
+    if (is.character(traj)) {
+      traj <- data.table::fread(traj,
+                                verbose=FALSE,
+                                showProgress=FALSE)[[1]]
+    }
+    traj
+  }
+  traj1 <- check_traj(traj1)
+  traj2 <- check_traj(traj2)
+  states <- sort(unique(c(traj1, traj2)))
+  n_states <- length(states)
+  overlap <- matrix(nrow=n_states, ncol=n_states)
+  idx <- seq(1, n_states)
+  for (i in idx) {
+    state_is_i <- traj2[(traj1==states[i])]
+    for (j in idx) {
+      state_is_ij <- (state_is_i == states[j])
+      overlap[i,j] <- sum(state_is_ij)
+    }
+  }
+  rownames(overlap) <- paste("", states)
+  colnames(overlap) <- paste(" ", states)
+  #TODO: nicer plot, no scaling, etc
+  circlize::chordDiagram(overlap,
+                         grid.col=c(rainbow(n_states),
+                                    rep("black", n_states)))
 }
