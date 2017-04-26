@@ -23,11 +23,7 @@ Imports:
     plotly,
     Rcpp,
     reshape2,
-<<<<<<< HEAD
-    subprocess
-=======
     subprocess,
     igraph,
     circlize
->>>>>>> 4b288dda45433d61fd92c05bd75d1354dd0fa624
 LinkingTo: Rcpp
