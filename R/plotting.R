@@ -95,7 +95,6 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   p
 }
 
-
 #' plot 2d-proj, 1d-proj and eigenvector content for given PCA
 #' @param pca List with filenames, pointing to projections and eigenvectors.
 #'            Format (cov): "proj": "coords.proj", "vec": "coords.vec".
@@ -368,11 +367,12 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
     theme_bw()
 }
 
-
 #' plot state trajectory comparison
 #'
 #' Compare state trajectories based on their overlap of state populations.
 #' Trajectories must be of same length and must have identical state labels.
+#' Colored states are taken from traj1 and separate into black states, taken
+#' from traj2.
 #'
 #' @param traj1 Either a vector encoding first state trajectory or
 #'              a filename pointing to the trajectory.
@@ -408,3 +408,11 @@ plt.stateTrajComparison <- function(traj1, traj2) {
                          grid.col=c(rainbow(n_states),
                                     rep("black", n_states)))
 }
+
+
+
+
+
+
+
+
