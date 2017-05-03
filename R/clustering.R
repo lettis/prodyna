@@ -184,8 +184,37 @@ clustering.microstates <- function(rc, radius, sorted=TRUE, output="microstates"
   message("... finished")
 }
 
+#' rename microstates from 1:N, sorted by descending populations
+#' @param microstates Either filename or vector of microstate trajectory
+#' @param output Filename of renamed microstate trajectory.
+#'               (default: NULL, i.e. just return microstate trajectory as vector)
+#' @export
+clustering.microstates.renamed <- function(microstates, output=NULL) {
+  require(dplyr)
+  if (is.character(microstates)) {
+    microstates <- data.table::fread(microstates,
+                                     verbose=FALSE,
+                                     showProgress=FALSE)[[1]]
+  }
+  microstates_renamed <- microstates
+  n_microstates <- length(unique(microstates))
+  counts <- data.frame(state=microstates) %>%
+    count(state) %>%
+    arrange(desc(n)) %>%
+    mutate(idx=1:n_microstates)
+  for (state in unique(microstates)) {
+    microstates_renamed[microstates==state] <- counts[counts$state==state,]$idx
+  }
+  if ( ! is.null(output)) {
+    data.table::fwrite(data.frame(microstates_renamed),
+                       sep=" ",
+                       col.names=FALSE,
+                       verbose=FALSE,
+                       showProgress=FALSE)
+  }
 
-
+  microstates_renamed
+}
 
 #' Return data frame with population per frame
 #' @param rc Either the clustered reaction coordinates or a path to the pop files
@@ -245,8 +274,6 @@ clustering.plot.pops <- function(rc, radii=NULL, logy=TRUE) {
 }
 
 
-
-
 #' Plot hierarchical network of MPP lumping
 #' @param dirname Directory of MPP run
 #' @export
@@ -298,3 +325,4 @@ clustering.plot.mppNetwork <- function(dirname) {
        edge.width=g$weights,
        layout=layout_with_kk)
 }
+
