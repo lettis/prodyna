@@ -52,18 +52,11 @@ msm.transitionMatrix <- function(traj, lag, row.normalized=FALSE) {
 #' @export
 msm.sim <- function(T, initial_state, n_steps){
   n_states <- nrow(T)
-
-  propagate <- function(state) {
-    candidate <- sample(1:n_states, 1)
-    while(runif(1) > T[candidate,state]) {
-      candidate <- sample(1:n_states, 1)
-    }
-    candidate
-  }
-
-  traj <- initial_state
-  for (i in 1:n_steps) {
-    traj <- c(traj, propagate(traj[i]))
+  traj <- rep(initial_state, n_steps)
+  for (i in 2:n_steps) {
+    traj[i] <- sample.int(n_states,
+                          size=1,
+                          prob=T[1:n_states,traj[i-1]])
   }
   traj
 }
