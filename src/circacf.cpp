@@ -27,14 +27,11 @@ NumericVector circacf(NumericVector x, unsigned int tau_max) {
   }
   double two_pi = 2 * M_PI;
   double mu = atan2(mu_s/n, mu_c/n);
-  // shift coordinates using periodic boundary corrections
+  // convert coordinates to distances of single frame to periodic mean
   for (unsigned int i=0; i < n; ++i) {
-    x[i] = x[i] - mu;
-    if (x[i] < -M_PI) {
-      x[i] += two_pi;
-    } else if (x[i] > M_PI) {
-      x[i] -= two_pi;
-    }
+    x[i] = std::abs(x[i] - mu);
+    x[i] = std::min(std::abs(two_pi - x[i])
+                  , x[i]);
   }
   // compute ACF
   unsigned int tau;
