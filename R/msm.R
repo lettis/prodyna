@@ -29,14 +29,19 @@ msm.countMatrix <- function(traj, lag) {
 #' @param traj State trajectory, either encoded as vector or a filename.
 #' @param lag time lag to use for counting jumps: traj[i] -> traj[i+lag].
 #' @param row.normalized if TRUE, transition matrix will be row-normalized, encoding jumps by from(row) to(col). Else (default) matrix is column-normalized encoding jumps from(col) to(row).
+#' @param enforce.db Enforce detailed balance by averaging over
+#'                   forward and backward rates.
 #' @export
-msm.transitionMatrix <- function(traj, lag, row.normalized=FALSE) {
+msm.transitionMatrix <- function(traj, lag, row.normalized=FALSE, enforce.db=TRUE) {
   C <- msm.countMatrix(traj, lag)
   for (i in 1:nrow(C)) {
     C[i,] <- C[i,] / sum(C[i,])
   }
   if ( ! row.normalized) {
     C <- t(C)
+  }
+  if (enforce.db) {
+    C <- 0.5 * (C+t(C))
   }
   C
 }
@@ -52,18 +57,11 @@ msm.transitionMatrix <- function(traj, lag, row.normalized=FALSE) {
 #' @export
 msm.sim <- function(T, initial_state, n_steps){
   n_states <- nrow(T)
-
-  propagate <- function(state) {
-    candidate <- sample(1:n_states, 1)
-    while(runif(1) > T[candidate,state]) {
-      candidate <- sample(1:n_states, 1)
-    }
-    candidate
-  }
-
-  traj <- initial_state
-  for (i in 1:n_steps) {
-    traj <- c(traj, propagate(traj[i]))
+  traj <- rep(initial_state, n_steps)
+  for (i in 2:n_steps) {
+    traj[i] <- sample.int(n_states,
+                          size=1,
+                          prob=T[1:n_states,traj[i-1]])
   }
   traj
 }
