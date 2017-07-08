@@ -95,7 +95,6 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   p
 }
 
-
 #' plot 2d-proj, 1d-proj and eigenvector content for given PCA
 #' @param pca List with filenames, pointing to projections and eigenvectors.
 #'            Format (cov): "proj": "coords.proj", "vec": "coords.vec".
@@ -213,6 +212,8 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
     proj <- file_read(pca)
   }
 
+  colnames(proj) <- c("x", "y")
+
   if (diverge) {
     # diverging color scale
     color_palette <- "RdYlBu"
@@ -223,8 +224,8 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
 
   ggplot(proj) +
     geom_bin2d(bins=200,
-               aes(x=V1,
-                   y=V2,
+               aes(x=x,
+                   y=y,
                    fill=-log(..count../max(..count..)))) +
     scale_fill_distiller(palette=color_palette,
                          guide=guide_legend(title="[kT]",
@@ -288,23 +289,56 @@ plt.cumFlucts <- function() {
 
 #' plot autocorrelation of observables
 #'
-#' @param coords Filename of coordinates.
-#' @param lag.max The maximal lagtime. If < 1 (default: 0.25), interpret as ratio to total length, else given in number of timesteps.
+#' @param coords Filename of coordinates or list of filenames.
+#' @param lag.max The maximal lagtime. If < 1 (default: 0.25),
+#'                interpret as ratio to total length,
+#'                else given in number of timesteps.
 #' @param columns Vector with column indices of observables to compute ACF for.
 #' @param circular Compute ACF for circular variables (e.g. dihedral angles).
-#' @param dt Timestep in [ps]. If given, time axis will be scaled accordingly. Default: NULL, i.e. express time in number of timesteps.
+#' @param dt Timestep in [ps]. If given, time axis will be scaled accordingly.
+#'           Default: NULL, i.e. express time in number of timesteps.
 #' @export
 plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) {
   suppressMessages(require(ggplot2))
   suppressMessages(require(data.table))
-  if ( ! file.exists(coords)) {
-    coords <- get.fullPath(coords)
+
+  compute_acf <- function(fname) {
+    if ( ! file.exists(fname)) {
+      fname <- get.fullPath(fname)
+    }
+    stats.autocor(fname,
+                  columns = columns,
+                  lag.max = lag.max,
+                  circular = circular)
   }
-  acf_data <- stats.autocor(coords,
-                            columns = columns,
-                            lag.max = lag.max,
-                            circular = circular)
-  n <- length(acf_data[[1]])
+  # compute ACF data (for ensemble: mean and sd)
+  if (is.list(coords)) {
+    n_files <- length(coords)
+    acf_tmp <- lapply(coords, function(fname) {
+      do.call("rbind", compute_acf(fname))
+    })
+    # compute mean
+    acf_mean <- acf_tmp[[1]]
+    for (i in 2:n_files) {
+      acf_mean <- acf_mean + acf_tmp[[i]]
+    }
+    acf_mean <- acf_mean / n_files
+    # compute sigma
+    acf_sigma <- 0 * acf_mean
+    for (i in 1:n_files) {
+      acf_sigma <- (acf_mean-acf_sigma)^2
+    }
+    acf_sigma <- sqrt(acf_sigma/(n_files-1))
+    # reshape and set column names
+    acf_mean <- data.frame(t(acf_mean))
+    acf_sigma <- data.frame(t(acf_sigma))
+    colnames(acf_sigma) <- columns
+  } else {
+    acf_mean <- compute_acf(coords)
+    acf_sigma <- NULL
+  }
+  # construct time axis
+  n <- length(acf_mean[[1]])
   if (is.null(dt)) {
     timeline <-  0:(n-1)
     x_lbl <- "frame"
@@ -312,17 +346,44 @@ plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) 
     timeline <- 0:(n-1) * dt
     x_lbl <- "time [ps]"
   }
-  acf_data <- data.frame(t=timeline, acf_data)
-  colnames(acf_data) <- c("t", columns)
-  acf_data <- melt(acf_data, id.vars=c("t"))
+  # data aggregation
+  acf_mean <- data.frame(t=timeline, acf_mean)
+  colnames(acf_mean) <- c("t", columns)
+  acf_mean <- melt(acf_mean,
+                   id.vars=c("t"),
+                   value.name="mu")
+  if (is.null(acf_sigma)) {
+    acf_data <- acf_mean
+  } else {
+    acf_sigma <- data.frame(t=timeline, acf_sigma)
+    colnames(acf_sigma) <- c("t", columns)
+    acf_sigma <- melt(acf_sigma,
+                      id.vars=c("t"),
+                      value.name="sigma")
+    acf_data <- dplyr::left_join(acf_mean, acf_sigma, by=c("t", "variable"))
+    acf_data <- dplyr::mutate(acf_data,
+                              ymin=sapply(mu-sigma, function(x) {max(0.1, x)}),
+                              ymax=sapply(mu+sigma, function(x) {max(0.1, x)}))
+  }
 
-  ggplot(acf_data) +
-    geom_line(aes(x=t, y=value, color=variable)) +
+  if (is.null(acf_sigma)) {
+    p <- ggplot(acf_data) +
+      geom_line(aes(x=t, y=mu, color=variable))
+  } else {
+    p <- ggplot(acf_data, aes(t)) +
+      geom_ribbon(aes(ymin=ymin,
+                      ymax=ymax,
+                      fill=variable), alpha=0.2) +
+      geom_line(aes(y=mu, color=variable))
+  }
+  p <- p +
     scale_y_log10(limits=c(0.1, 1)) +
     xlab(x_lbl) +
     ylab("ACF") +
     theme_bw() +
     theme(legend.title = element_blank())
+
+  p
 }
 
 #' plot state geometries as Ramacolor plots
@@ -367,3 +428,53 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
     xlim(1, length(states)) +
     theme_bw()
 }
+
+#' plot state trajectory comparison
+#'
+#' Compare state trajectories based on their overlap of state populations.
+#' Trajectories must be of same length and must have identical state labels.
+#' Colored states are taken from traj1 and separate into black states, taken
+#' from traj2.
+#'
+#' @param traj1 Either a vector encoding first state trajectory or
+#'              a filename pointing to the trajectory.
+#' @param traj2 Either a vector encoding second state trajectory or
+#'              a filename pointing to the trajectory.
+#' @export
+plt.stateTrajComparison <- function(traj1, traj2) {
+  check_traj <- function(traj) {
+    if (is.character(traj)) {
+      traj <- data.table::fread(traj,
+                                verbose=FALSE,
+                                showProgress=FALSE)[[1]]
+    }
+    traj
+  }
+  traj1 <- check_traj(traj1)
+  traj2 <- check_traj(traj2)
+  states <- sort(unique(c(traj1, traj2)))
+  n_states <- length(states)
+  overlap <- matrix(nrow=n_states, ncol=n_states)
+  idx <- seq(1, n_states)
+  for (i in idx) {
+    state_is_i <- traj2[(traj1==states[i])]
+    for (j in idx) {
+      state_is_ij <- (state_is_i == states[j])
+      overlap[i,j] <- sum(state_is_ij)
+    }
+  }
+  rownames(overlap) <- paste("", states)
+  colnames(overlap) <- paste(" ", states)
+  #TODO: nicer plot, no scaling, etc
+  circlize::chordDiagram(overlap,
+                         grid.col=c(rainbow(n_states),
+                                    rep("black", n_states)))
+}
+
+
+
+
+
+
+
+

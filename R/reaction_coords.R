@@ -1,20 +1,33 @@
 
 #' generate dihedrals
+#'
+#' TODO: update docs, update project management, etc.
+#'
 #' @param skipCA Vector of CA indices to be skipped. Default: first and last.
 #' @param ignoreCache Ignore cached files and recalculate in any case.
 #' @export
-generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
-  .check.projectPath()
-  # get project description
-  pd <- projectInfo()
+generate.dihedrals <- function(ref=NULL, traj=NULL, skipCA=NULL, ignoreCache=TRUE) {
+  if (is.null(ref) | is.null(traj)) {
+    .check.projectPath()
+    pd <- projectInfo()
+    if(is.null(ref)){
+      ref <- get.fullPath(pd$ref[[1]])
+    }
+    if(is.null(traj)){
+      traj <- pd$traj
+    }
+    project_mode <- TRUE
+  } else {
+    project_mode <- FALSE
+  }
 
-  if (length(pd$dihedrals) == 0 | ignoreCache) {
+  if (ignoreCache) {
     filter.backbone <- function(pdb) {
       pdb$atom$elety == "N" |
         pdb$atom$elety == "CA" |
         pdb$atom$elety == "C"
     }
-    pdb_ref <- bio3d::read.pdb(get.fullPath(pd$ref[[1]]))
+    pdb_ref <- bio3d::read.pdb(ref)
     # correct for custom residue types
     pdb_ref$calpha <- pdb_ref$atom$elety == "CA"
     n_atoms <- length(pdb_ref$calpha)
@@ -35,18 +48,18 @@ generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
     })
     dih_indices <- do.call("c", dih_indices)
     # prepare index file to identify backbone-dihedral atoms
-    tmp_ndx <- get.fullPath("tmp_phipsi.ndx")
+    tmp_ndx <- "tmp_phipsi.ndx"
     unlink(tmp_ndx)
     write("[PhiPsi]", tmp_ndx)
     write(dih_indices, tmp_ndx, append=TRUE, ncolumns=4)
     # compute dihedrals
-    fname_dihedrals <- get.fullPath(paste(pd$traj, ".dih", sep=""))
+    fname_dihedrals <- paste(traj, ".dih", sep="")
     fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
     unlink(fname_xvg)
     print("running GMX to generate dihedrals")
     system2(get.binary("gmx"), c("angle",
                                  " -f ",
-                                 get.fullPath(pd$traj),
+                                 traj,
                                  " -n ",
                                  tmp_ndx,
                                  " -ov ",
@@ -70,7 +83,7 @@ generate.dihedrals <- function(skipCA=NULL, ignoreCache=FALSE) {
     print("done")
   }
 
-  .update()
+  #.update()
 }
 
 #' generate cos/sin transformed dihedrals

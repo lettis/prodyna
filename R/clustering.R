@@ -184,21 +184,55 @@ clustering.microstates <- function(rc, radius, sorted=TRUE, output="microstates"
   message("... finished")
 }
 
+#' rename microstates from 1:N, sorted by descending populations
+#' @param microstates Either filename or vector of microstate trajectory
+#' @param output Filename of renamed microstate trajectory.
+#'               (default: NULL, i.e. just return microstate trajectory as vector)
+#' @export
+clustering.microstates.renamed <- function(microstates, output=NULL) {
+  require(dplyr)
+  if (is.character(microstates)) {
+    microstates <- data.table::fread(microstates,
+                                     verbose=FALSE,
+                                     showProgress=FALSE)[[1]]
+  }
+  microstates_renamed <- microstates
+  n_microstates <- length(unique(microstates))
+  counts <- data.frame(state=microstates) %>%
+    count(state) %>%
+    arrange(desc(n)) %>%
+    mutate(idx=1:n_microstates)
+  for (state in unique(microstates)) {
+    microstates_renamed[microstates==state] <- counts[counts$state==state,]$idx
+  }
+  if ( ! is.null(output)) {
+    data.table::fwrite(data.frame(microstates_renamed),
+                       sep=" ",
+                       col.names=FALSE,
+                       verbose=FALSE,
+                       showProgress=FALSE)
+  }
 
-
+  microstates_renamed
+}
 
 #' Return data frame with population per frame
-#' @param rc The clustered reaction coordinates
+#' @param rc Either the clustered reaction coordinates or a path to the pop files
 #' @param radii Selection of radii. If NULL (default), get all available
 #' @export
 clustering.get.pops <- function(rc, radii=NULL) {
+  if (dir.exists(rc)) {
+    rc_dir <- rc
+  } else {
+    rc_dir <- get.fullPath(paste(rc, "clustering", sep="."))
+  }
   if (is.null(radii)) {
-    popfiles <- list.files(get.fullPath(paste(rc, "clustering", sep=".")),
+    popfiles <- list.files(rc_dir,
                            pattern="pop_*",
                            full.names=TRUE)
   } else {
     popfiles <- sapply(radii, function(r) {
-      get.fullPath(c(paste(rc, "clustering", sep="."),
+      get.fullPath(c(rc_dir,
                      paste("pop_", sprintf("%0.6f", r), sep="")))
     })
   }
@@ -212,7 +246,8 @@ clustering.get.pops <- function(rc, radii=NULL) {
 
 
 #' Plot per-frame populations for given radii.
-#' @param rc Reaction coordinates used for clustering.
+#' @param rc Either the reaction coordinates used for clustering or
+#'           a path to the pop files.
 #' @param radii Radii selection. If NULL (default), plot all available.
 #' @param logy Plot with logarithmic y-scale.
 #' @export
@@ -236,5 +271,58 @@ clustering.plot.pops <- function(rc, radii=NULL, logy=TRUE) {
     p <- p + scale_y_log10()
   }
   p
+}
+
+
+#' Plot hierarchical network of MPP lumping
+#' @param dirname Directory of MPP run
+#' @export
+clustering.plot.mppNetwork <- function(dirname) {
+  require(igraph, quietly=TRUE, warn.conflicts=FALSE)
+  require(dplyr, quietly=TRUE, warn.conflicts=FALSE)
+
+  #### get the data
+  # helper to get different data files from MPP directory
+  get_mpp_data <- function(fname) {
+    data.table::fread(paste(dirname,
+                            fname,
+                            sep="/"),
+                      verbose=FALSE,
+                      showProgress=FALSE)
+  }
+  # get populations at different qmin levels
+  mpp_pops <- lapply(list.files(dirname, pattern="mpp_pop*"), function(fname){
+    pops <- get_mpp_data(fname)
+    colnames(pops) <- c("state", "pop")
+    pops
+  })
+  # helper function to get max pops from union of p1 and p2
+  get_max_pops <- function(p1, p2) {
+    all_states <- unique(c(p1$state, p2$state))
+    pops <- c()
+    for (s in all_states) {
+      pops <- c(pops, max(p1$pop[p1$state==s],
+                          p2$pop[p2$state==s],
+                          na.rm=TRUE))
+    }
+    data.frame(state=all_states, pop=pops)
+  }
+  # get total max pops for all states (i.e. pops before lumping)
+  max_pops <- Reduce(get_max_pops, mpp_pops)
+  # get transitions (i.e. at what qmin level are states lumped?)
+  transitions <- get_mpp_data("mpp_transitions.dat")
+  colnames(transitions) <- c("from", "to", "qmin")
+  transitions$qmin <- round(transitions$qmin, digits=4)
+
+  #### construct the network
+  pops <- (max_pops %>% arrange(state) %>% select(pop))[[1]]
+  g <- graph(edges=as.vector(rbind(transitions$from, transitions$to)))
+  g$weights <- 5*transitions$qmin
+  plot(g,
+       vertex.color="white",
+       vertex.size=log(pops),
+       edge.arrow.size=0.2,
+       edge.width=g$weights,
+       layout=layout_with_kk)
 }
 
