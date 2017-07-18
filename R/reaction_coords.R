@@ -358,7 +358,7 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
     columns <- list(columns)
   }
   # get project information
-  pd <- projectInfo()
+  #pd <- projectInfo()
   if (is.null(output)) {
     # generate filenames
     id <- length(pd$reactionCoords) + 1
