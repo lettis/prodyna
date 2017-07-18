@@ -4,7 +4,7 @@
 #' @param radii Vector of radii to test.
 #' @export
 clustering.estimate.radii <- function(rc, radii) {
-  .check.projectPath()
+  #.check.projectPath()
   # create clustering directory
   suppressWarnings(cls_dir <- normalizePath(paste(rc, "clustering", sep=".")))
   if ( ! file.exists(rc)) {

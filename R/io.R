@@ -5,17 +5,17 @@
 #' @param dihedrals Explicitly give filename of dihedrals. Default: NULL, i.e.
 #'                  choose default dihedrals from project management.
 #' @export
-read.dihedrals <- function(resno=NULL, dihedrals=NULL) {
-  .check.projectPath()
+read.dihedrals <- function(dihedrals, resno=NULL, reslabel=NULL) {
+  #.check.projectPath()
   # get project information
-  if (is.null(dihedrals)) {
-    pd <- projectInfo()
-    get.fullPath(pd$dihedrals)
-  } else {
-    if ( ! file.exists(dihedrals)) {
-      dihedrals <- get.fullPath(dihedrals)
-    }
-  }
+  # if (is.null(dihedrals)) {
+  #   pd <- projectInfo()
+  #   get.fullPath(pd$dihedrals)
+  # } else {
+  #   if ( ! file.exists(dihedrals)) {
+  #     dihedrals <- get.fullPath(dihedrals)
+  #   }
+  # }
   if (is.null(resno)) {
     dih <- data.table::fread(dihedrals,
                              verbose=FALSE,

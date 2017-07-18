@@ -137,7 +137,7 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additional_params=NUL
     # run PCA
     system2(get.binary("fastpca"), args=params)
   }
-  .update()
+  #.update()
 }
 
 
@@ -169,7 +169,7 @@ run.dPCA <- function(cossin, corr=FALSE, ignoreCache=FALSE) {
 #' @param ignoreCache Ignore cached files and recalculate in any case.
 #' @export
 run.dPCAplus <- function(dihedrals=NULL, corr=FALSE, ignoreCache=FALSE) {
-  .check.projectPath()
+#  .check.projectPath()
   if (is.null(dihedrals)) {
     # get project information
     pd <- projectInfo()
@@ -180,9 +180,9 @@ run.dPCAplus <- function(dihedrals=NULL, corr=FALSE, ignoreCache=FALSE) {
     dihedrals <- pd$dihedrals
   }
   # try to find dihedrals inside project if filename is not fully qualified
-  if ( ! file.exists(dihedrals)) {
-    dihedrals <- get.fullPath(dihedrals)
-  }
+  # if ( ! file.exists(dihedrals)) {
+  #   dihedrals <- get.fullPath(dihedrals)
+  # }
   run.PCA(coords=dihedrals,
           corr=corr,
           ignoreCache=ignoreCache,
@@ -349,7 +349,7 @@ run.caPCA <- function(residue.mindist=4, residue.maxdist=NULL, corr=FALSE) {
 #' @param output Output filename (default: NULL). If NULL, filename will be generated.
 #' @export
 generate.reactionCoordinates <- function(coords, columns, output=NULL) {
-  .check.projectPath()
+  #.check.projectPath()
   if (xor(is.list(coords), is.list(columns))) {
     stop("either coords and columns are both lists (of same length), or none is")
   }
@@ -373,7 +373,7 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
   if (file.exists(desc_fname) | file.exists(coords_fname)) {
     warning("no reaction coordinates generated: file exists")
   } else {
-    coords <- lapply(coords, function(c) {get.fullPath(c)})
+    #coords <- lapply(coords, function(c) {get.fullPath(c)})
     # generate description
     desc <- do.call(c, lapply(1:length(coords),
                               function(i) {
@@ -404,7 +404,7 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
     system(cmd)
   }
 
-  .update()
+  #.update()
 }
 
 #' filter a data set

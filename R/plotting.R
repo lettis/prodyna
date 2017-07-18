@@ -17,15 +17,20 @@
 #' @param resno Residue number.
 #' @param dihedrals File with dihedrals. If NULL (default), choose default
 #'                  dihedrals from project management.
+#' @param reslabel Label of residue (to be used in the title)
 #' @export
-plt.ramachandran <- function(resno, dihedrals=NULL) {
-  if (is.null(dihedrals)) {
-    .check.projectPath()
-    p <- projectInfo()
-    dihedrals <- p$dihedrals
-  }
+plt.ramachandran <- function(resno, dihedrals, reslabel=NULL) {
+  # if (is.null(dihedrals)) {
+  #   .check.projectPath()
+  #   p <- projectInfo()
+  #   dihedrals <- p$dihedrals
+  # }
   suppressMessages(require(ggplot2))
-  dih <- read.dihedrals(resno, dihedrals)
+  if (is.character(dihedrals)) {
+    dih <- read.dihedrals(dihedrals, resno)
+  } else {
+    dih <- dihedrals
+  }
   phi <- dih[[paste("phi", resno, sep="")]]
   psi <- dih[[paste("psi", resno, sep="")]]
   p <- ggplot(data.frame(phi, psi)) +
@@ -35,8 +40,12 @@ plt.ramachandran <- function(resno, dihedrals=NULL) {
     xlim(-180,180) +
     ylim(-180,180) +
     theme_bw() +
-    theme(legend.position = "none") +
-    ggtitle(paste("residue", resno))
+    theme(legend.position = "none")
+  if (is.null(reslabel)) {
+    p <- p + ggtitle(paste("residue", resno))
+  } else {
+    p <- p + ggtitle(paste("residue", reslabel))
+  }
 
   p
 }
@@ -96,32 +105,38 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
 }
 
 #' plot 2d-proj, 1d-proj and eigenvector content for given PCA
-#' @param pca List with filenames, pointing to projections and eigenvectors.
-#'            Format (cov): "proj": "coords.proj", "vec": "coords.vec".
-#'            Format (cov): "projn": "coords.projn", "vecn": "coords.vecn".
+#' @param fname Filename of original coordinates.
 #' @param pcs Vector of PC indices.
 #' @param corr Use correlation-based PCA (default: FALSE).
 #' @export
-plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
-  .check.projectPath()
+plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
+  # .check.projectPath()
   suppressMessages(require(data.table))
   suppressMessages(require(GGally))
   suppressMessages(require(ggplot2))
   if (corr) {
-    proj <- fread(.check.filePath(pca$projn),
+    # proj <- fread(.check.filePath(pca$projn),
+    #               select=pcs,
+    #               verbose=FALSE,
+    #               showProgress=FALSE)
+    # vecs <- fread(.check.filePath(pca$vecn),
+    #               select=pcs,
+    #               verbose=FALSE,
+    #               showProgress=FALSE)
+    proj <- fread(sprintf("%s.projn", fname),
                   select=pcs,
                   verbose=FALSE,
                   showProgress=FALSE)
-    vecs <- fread(.check.filePath(pca$vecn),
+    vecs <- fread(sprintf("%s.vecn", fname),
                   select=pcs,
                   verbose=FALSE,
                   showProgress=FALSE)
   } else {
-    proj <- fread(.check.filePath(pca$proj),
+    proj <- fread(sprintf("%s.proj", fname),
                   select=pcs,
                   verbose=FALSE,
                   showProgress=FALSE)
-    vecs <- fread(.check.filePath(pca$vec),
+    vecs <- fread(sprintf("%s.vec", fname),
                   select=pcs,
                   verbose=FALSE,
                   showProgress=FALSE)
@@ -192,6 +207,7 @@ plt.pcaOverview <- function(pca, pcs, corr=FALSE) {
 plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
   suppressMessages(require(data.table))
   suppressMessages(require(ggplot2))
+  suppressMessages(require(dplyr))
 
   file_read <- function(fname) {
     fread(fname,
@@ -199,17 +215,22 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
           verbose=FALSE,
           showProgress=FALSE)
   }
-  if (is.list(pca)) {
-    .check.projectPath()
-    if (corr) {
-      .check.filesExist(c(pca$projn, pca$vecn))
-      proj <- file_read(pca$projn)
-    } else {
-      .check.filesExist(c(pca$proj, pca$vec))
-      proj <- file_read(pca$proj)
-    }
+
+  if (is.data.frame(proj)) {
+    proj <- proj %>% select(dim1, dim2)
   } else {
-    proj <- file_read(pca)
+    if (is.list(pca)) {
+      .check.projectPath()
+      if (corr) {
+        .check.filesExist(c(pca$projn, pca$vecn))
+        proj <- file_read(pca$projn)
+      } else {
+        .check.filesExist(c(pca$proj, pca$vec))
+        proj <- file_read(pca$proj)
+      }
+    } else {
+      proj <- file_read(pca)
+    }
   }
 
   colnames(proj) <- c("x", "y")
@@ -470,11 +491,6 @@ plt.stateTrajComparison <- function(traj1, traj2) {
                          grid.col=c(rainbow(n_states),
                                     rep("black", n_states)))
 }
-
-
-
-
-
 
 
 
