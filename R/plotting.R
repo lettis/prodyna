@@ -13,19 +13,20 @@
 }
 
 
-#' plot Ramachandran plot
-#' @param resno Residue number.
-#' @param dihedrals File with dihedrals. If NULL (default), choose default
-#'                  dihedrals from project management.
-#' @param reslabel Label of residue (to be used in the title)
+#' Ramachandran plot.
+#'
+#' Plot the distribution of \eqn{\phi} and \eqn{\psi}} angles of the residue
+#' with the given number.
+#'
+#' @param resno Numerical, residue number.
+#' @param dihedrals Character or data.frame, name of the .dih file or data.frame
+#'   containing the dihedral angles.
+#' @param reslabel Character, label of the residue (to be used in the title).
+#' @return ggplot object
+#' @import ggplot2
 #' @export
 plt.ramachandran <- function(resno, dihedrals, reslabel=NULL) {
-  # if (is.null(dihedrals)) {
-  #   .check.projectPath()
-  #   p <- projectInfo()
-  #   dihedrals <- p$dihedrals
-  # }
-  suppressMessages(require(ggplot2))
+
   if (is.character(dihedrals)) {
     dih <- read.dihedrals(dihedrals, resno)
   } else {
@@ -33,21 +34,22 @@ plt.ramachandran <- function(resno, dihedrals, reslabel=NULL) {
   }
   phi <- dih[[paste("phi", resno, sep="")]]
   psi <- dih[[paste("psi", resno, sep="")]]
+
   p <- ggplot(data.frame(phi, psi)) +
-    stat_bin2d(aes(x=phi, y=psi), bins=180) +
-    scale_fill_distiller(palette="YlGnBu",
-                         trans=.reverselog_trans()) +
-    xlim(-180,180) +
-    ylim(-180,180) +
-    theme_bw() +
-    theme(legend.position = "none")
+       stat_bin2d(aes(x=phi, y=psi), bins=180) +
+       scale_fill_distiller(palette="YlGnBu",
+                            trans=.reverselog_trans()) +
+       xlim(-180,180) +
+       ylim(-180,180) +
+       theme_bw() +
+       theme(legend.position = "none")
+
   if (is.null(reslabel)) {
     p <- p + ggtitle(paste("residue", resno))
   } else {
     p <- p + ggtitle(paste("residue", reslabel))
   }
-
-  p
+  return(p)
 }
 
 #' plot matrix
@@ -104,25 +106,18 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   p
 }
 
-#' plot 2d-proj, 1d-proj and eigenvector content for given PCA
-#' @param fname Filename of original coordinates.
-#' @param pcs Vector of PC indices.
-#' @param corr Use correlation-based PCA (default: FALSE).
+#' PCA overview
+#'
+#' Plot 2d-proj, 1d-proj and eigenvector content for given PCA.
+#'
+#' @param fname Character, filename of original coordinates.
+#' @param pcs Numerical vector, PC indices.
+#' @param corr Logical, if \code{TRUE} use correlation-based PCA (default:
+#'   \code{FALSE}).
+#' @import ggplot2, GGally, data.table
 #' @export
 plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
-  # .check.projectPath()
-  suppressMessages(require(data.table))
-  suppressMessages(require(GGally))
-  suppressMessages(require(ggplot2))
   if (corr) {
-    # proj <- fread(.check.filePath(pca$projn),
-    #               select=pcs,
-    #               verbose=FALSE,
-    #               showProgress=FALSE)
-    # vecs <- fread(.check.filePath(pca$vecn),
-    #               select=pcs,
-    #               verbose=FALSE,
-    #               showProgress=FALSE)
     proj <- fread(sprintf("%s.projn", fname),
                   select=pcs,
                   verbose=FALSE,
@@ -190,7 +185,6 @@ plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
       }
     }
   }
-
   plt
 }
 

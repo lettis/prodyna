@@ -7,7 +7,7 @@ using namespace Rcpp;
 
 // circacf
 NumericVector circacf(NumericVector x, unsigned int tau_max);
-RcppExport SEXP prodyna_circacf(SEXP xSEXP, SEXP tau_maxSEXP) {
+RcppExport SEXP _prodyna_circacf(SEXP xSEXP, SEXP tau_maxSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -19,7 +19,7 @@ END_RCPP
 }
 // fastacf
 NumericVector fastacf(NumericVector x, unsigned int tau_max);
-RcppExport SEXP prodyna_fastacf(SEXP xSEXP, SEXP tau_maxSEXP) {
+RcppExport SEXP _prodyna_fastacf(SEXP xSEXP, SEXP tau_maxSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -31,7 +31,7 @@ END_RCPP
 }
 // rama2rgb
 NumericVector rama2rgb(NumericVector phis, NumericVector psis);
-RcppExport SEXP prodyna_rama2rgb(SEXP phisSEXP, SEXP psisSEXP) {
+RcppExport SEXP _prodyna_rama2rgb(SEXP phisSEXP, SEXP psisSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -43,7 +43,7 @@ END_RCPP
 }
 // streamed_cossin_transform
 void streamed_cossin_transform(std::string fname_in, std::string fname_out, bool is_deg);
-RcppExport SEXP prodyna_streamed_cossin_transform(SEXP fname_inSEXP, SEXP fname_outSEXP, SEXP is_degSEXP) {
+RcppExport SEXP _prodyna_streamed_cossin_transform(SEXP fname_inSEXP, SEXP fname_outSEXP, SEXP is_degSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::string >::type fname_in(fname_inSEXP);
@@ -52,4 +52,17 @@ BEGIN_RCPP
     streamed_cossin_transform(fname_in, fname_out, is_deg);
     return R_NilValue;
 END_RCPP
+}
+
+static const R_CallMethodDef CallEntries[] = {
+    {"_prodyna_circacf", (DL_FUNC) &_prodyna_circacf, 2},
+    {"_prodyna_fastacf", (DL_FUNC) &_prodyna_fastacf, 2},
+    {"_prodyna_rama2rgb", (DL_FUNC) &_prodyna_rama2rgb, 2},
+    {"_prodyna_streamed_cossin_transform", (DL_FUNC) &_prodyna_streamed_cossin_transform, 3},
+    {NULL, NULL, 0}
+};
+
+RcppExport void R_init_prodyna(DllInfo *dll) {
+    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
 }

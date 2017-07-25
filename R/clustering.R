@@ -4,19 +4,15 @@
 #' @param radii Vector of radii to test.
 #' @export
 clustering.estimate.radii <- function(rc, radii) {
-  #.check.projectPath()
   # create clustering directory
   suppressWarnings(cls_dir <- normalizePath(paste(rc, "clustering", sep=".")))
-  if ( ! file.exists(rc)) {
-    cls_dir <- get.fullPath(cls_dir)
-  }
-  if ( ! dir.exists(cls_dir)) {
+  if (!dir.exists(cls_dir)) {
     dir.create(cls_dir)
   }
   # create link to reaction coords
   rc_link <- paste(cls_dir, "reaction_coords", sep="/")
-  if ( ! file.exists(rc_link)) {
-    file.symlink(paste("../", rc, sep=""), rc_link)
+  if (!file.exists(rc_link)) {
+    file.symlink(normalizePath(rc), rc_link)
   }
   # run clustering
   cmd <- paste("cd", cls_dir, ";")
@@ -29,7 +25,7 @@ clustering.estimate.radii <- function(rc, radii) {
                "-d fe",
                "-p pop")
   message("running radii estimation for density-based clustering ...")
-  system(cmd)
+  run.cmds(cmd)
   message("... finished")
 }
 

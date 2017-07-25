@@ -1,40 +1,37 @@
 
-#' generate dihedrals
+#' Compute dihedral angles.
 #'
-#' TODO: update docs, update project management, etc.
+#' Dihedral angles for the given trajectory are computed using gmx.
+#' The result is saved to <traj>.dih.
 #'
-#' @param skipCA Vector of CA indices to be skipped. Default: first and last.
-#' @param ignoreCache Ignore cached files and recalculate in any case.
+#' @param ref Character, name of the PDB file describing the reference structure.
+#' @param traj Character, name of the XTC file describing the trajectory.
+#' @param skipCA Numerical vector, C\eqn{\alpha} indices to be skipped.
+#'   If \code{NULL} (default) first and last C\eqn{\alpha} indices are skipped
+#'   (incomplete dihedrals at terminal regions).
+#' @param ignoreCache Logical, if \code{TRUE} recompute even if output file
+#'   already exists (default: \code{FALSE}).
 #' @export
-generate.dihedrals <- function(ref=NULL, traj=NULL, skipCA=NULL, ignoreCache=TRUE) {
-  if (is.null(ref) | is.null(traj)) {
-    .check.projectPath()
-    pd <- projectInfo()
-    if(is.null(ref)){
-      ref <- get.fullPath(pd$ref[[1]])
-    }
-    if(is.null(traj)){
-      traj <- pd$traj
-    }
-    project_mode <- TRUE
-  } else {
-    project_mode <- FALSE
-  }
+generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
+  # output file
+  fname_dihedrals <- paste(traj, ".dih", sep="")
 
-  if (ignoreCache) {
+  if (!file.exists(fname_dihedrals)|ignoreCache){
     filter.backbone <- function(pdb) {
       pdb$atom$elety == "N" |
-        pdb$atom$elety == "CA" |
-        pdb$atom$elety == "C"
+      pdb$atom$elety == "CA" |
+      pdb$atom$elety == "C"
     }
     pdb_ref <- bio3d::read.pdb(ref)
+
     # correct for custom residue types
     pdb_ref$calpha <- pdb_ref$atom$elety == "CA"
     n_atoms <- length(pdb_ref$calpha)
     calpha_indices <- pdb_ref$atom$eleno[pdb_ref$calpha]
-    # remove first and last calpha
-    # (incomplete dihedrals at terminal regions)
+
+    # remove skipCA indices
     if (is.null(skipCA)) {
+      # default: remove first and last calpha
       calpha_indices <- head(calpha_indices, -1)[-1]
     } else {
       calpha_indices <- calpha_indices[!(1:length(calpha_indices) %in% skipCA)]
@@ -47,85 +44,84 @@ generate.dihedrals <- function(ref=NULL, traj=NULL, skipCA=NULL, ignoreCache=TRU
       c(phi, psi)
     })
     dih_indices <- do.call("c", dih_indices)
+
     # prepare index file to identify backbone-dihedral atoms
     tmp_ndx <- "tmp_phipsi.ndx"
     unlink(tmp_ndx)
     write("[PhiPsi]", tmp_ndx)
     write(dih_indices, tmp_ndx, append=TRUE, ncolumns=4)
+
     # compute dihedrals
-    fname_dihedrals <- paste(traj, ".dih", sep="")
     fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
     unlink(fname_xvg)
-    print("running GMX to generate dihedrals")
-    system2(get.binary("gmx"), c("angle",
-                                 " -f ",
-                                 traj,
-                                 " -n ",
-                                 tmp_ndx,
-                                 " -ov ",
-                                 fname_xvg,
-                                 " -type dihedral -all"),
-            stdout = TRUE,
-            stderr = TRUE)
+
+    print("Running GMX to generate dihedrals.")
+
+    run.cmd("gmx", args = c("angle",
+                            " -f ",
+                            traj,
+                            " -n ",
+                            tmp_ndx,
+                            " -ov ",
+                            fname_xvg,
+                            " -type dihedral -all"))
+
     # streamed xvg -> dih conversion
-    cmd <- paste(get.binary("awk"),
+    cmds <- paste(get.binary("awk"),
                  "'!/^#.*/ && !/^@.*/ {for(i=3; i<=NF; ++i)",
                  #"'{for(i=3; i<=NF; ++i)",
                  "printf(\" %s\", $i); printf(\"\\n\")}'",
                  fname_xvg,
                  ">",
                  fname_dihedrals)
-    system(cmd)
+    run.cmds(cmds)
+
     # cleanup
     unlink(tmp_ndx)
     unlink("angdist.xvg")
     unlink(fname_xvg)
-    print("done")
+    print("Done.")
+  } else {
+    print("Dihedral file already exists.")
   }
-
-  #.update()
 }
 
-#' generate cos/sin transformed dihedrals
-#' @param dihedrals Filename of dihedrals. If NULL (default), choose from project management.
-#' @param ignoreCache If set to true, recompute even is output already exists. default: FALSE
+#' Generate cos/sin transformed dihedrals.
+#'
+#' @param dihedrals Character, name of .dih file containing dihedral angles.
+#' @param ignoreCache Logical, if \code{TRUE} recompute even if output file
+#'   already exists (default: \code{FALSE}).
 #' @export
-generate.cossinTransform <- function(dihedrals=NULL, ignoreCache=FALSE) {
-  .check.projectPath()
-  # project description
-  pd <- projectInfo()
-  if (is.null(dihedrals)) {
-    dihedrals <- pd$dihedrals
-  }
-  if ( ! file.exists(dihedrals)) {
-    dihedrals <- get.fullPath(dihedrals)
-  }
+generate.cossinTransform <- function(dihedrals, ignoreCache=FALSE) {
   output <- paste(dihedrals, "cossin", sep=".")
-  if (( ! file.exists(output)) | ignoreCache) {
+  if (!file.exists(output)|ignoreCache) {
     streamed_cossin_transform(dihedrals, output)
   }
-  .update()
 }
 
 
-#' run PCA on given coordinates
+#' PCA
 #'
-#' @param coords Filename of coordinates.
-#' @param corr Perform PCA on correlations instead of covariance. default: FALSE.
-#' @param ignoreCache Recompute, even if output files already exist. default: FALSE.
-#' @param additional_params Vector with additional parameters for 'fastpca'. default: NULL.
+#' Run PCA on given coordinates.
+#'
+#' @param coords Character, name of file containing the coordinates.
+#' @param corr Logical, if \code{TRUE} use correlation instead of covariance.
+#'   Effectively whitens the data before doing analysis (default:
+#'   \code{FALSE}).
+#' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
+#'   already exist (default: \code{FALSE}).
+#' @param additionalParams Character vector, additional parameters for 'fastpca'
+#'   (default: \code{NULL}).
 #' @export
-run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additional_params=NULL) {
-  if ( ! file.exists(coords)) {
-    coords <- get.fullPath(coords)
-  }
+run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL) {
   results <- c("proj", "vec", "val", "cov", "stats")
   if (corr) {
     results <- paste(results, "n", sep="")
   }
   results <- paste(coords, results, sep=".")
   # results already computed?
-  cached_results_missing <- ( ! all(file.exists(results)))
+  cached_results_missing <- (!all(file.exists(results)))
+
   if (ignoreCache | cached_results_missing) {
     # setup 'fastpca' parameters
     params <- c("-f", "-p", "-v", "-l", "-c", "-s")
@@ -133,16 +129,18 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additional_params=NUL
     if (corr) {
       params <- c(params, "-N")
     }
-    params <- c(params, additional_params)
-    # run PCA
-    system2(get.binary("fastpca"), args=params)
+    params <- c(params, additionalParams)
+    print("Running 'fastpca'..")
+    run.cmd("fastpca", args=params)
+    print(".. done.")
+  } else {
+    print("PCA output files already exist.")
   }
-  #.update()
 }
 
-
-
-#' run dPCA on cos/sin transformed angles
+#' dPCA
+#'
+#' Run dPCA on cos/sin transformed angles.
 #'
 #' @param cossin Filename of cos/sin transformed data.
 #' @param corr Use correlation instead of covariance.
@@ -156,37 +154,21 @@ run.dPCA <- function(cossin, corr=FALSE, ignoreCache=FALSE) {
 }
 
 
-#' run dPCA+
+#' dPCA+
 #'
-#' Runs a dPCA+ analysis for the given project.
-#' If dihedrals have not been generated yet, they will be automatically
-#' using the default settings (remove first and last C\eqn{\alpha} to get
-#' rid of the end-caps).
-#' @param dihedrals Filename of dihedrals. If NULL (default), try to infer
-#'                  from project management.
-#' @param corr Use correlation instead of covariance.
-#'             Effectively whitens the data before doing analysis.
-#' @param ignoreCache Ignore cached files and recalculate in any case.
+#' Runs a dPCA+ analysis on dihedral angles.
+#'
+#' @param dihedrals Character, name of .dih file containing dihedral angles.
+#' @param corr Logical, if \code{TRUE} use correlation instead of covariance.
+#'  Effectively whitens the data before doing analysis (default: \code{FALSE}).
+#' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
+#'   already exists (default: \code{FALSE}).
 #' @export
-run.dPCAplus <- function(dihedrals=NULL, corr=FALSE, ignoreCache=FALSE) {
-#  .check.projectPath()
-  if (is.null(dihedrals)) {
-    # get project information
-    pd <- projectInfo()
-    if (!("dihedrals" %in% names(pd)) | length(pd$dihedrals) == 0) {
-      generate.dihedrals()
-      init(get.fullPath())
-    }
-    dihedrals <- pd$dihedrals
-  }
-  # try to find dihedrals inside project if filename is not fully qualified
-  # if ( ! file.exists(dihedrals)) {
-  #   dihedrals <- get.fullPath(dihedrals)
-  # }
+run.dPCAplus <- function(dihedrals, corr=FALSE, ignoreCache=FALSE) {
   run.PCA(coords=dihedrals,
           corr=corr,
           ignoreCache=ignoreCache,
-          additional_params = c("-P"))
+          additionalParams = c("-P"))
 }
 
 
@@ -342,14 +324,16 @@ run.caPCA <- function(residue.mindist=4, residue.maxdist=NULL, corr=FALSE) {
   .update()
 }
 
-#' select subspace projection
+#' Generate reaction coordinates.
+#'
+#' Select subspace projection.
+#'
 #' @param coords Either filename or list of filenames of coordinates.
 #' @param columns Select columns. Either single vector or
 #'                list of vectors as selection per coord file.
 #' @param output Output filename (default: NULL). If NULL, filename will be generated.
 #' @export
 generate.reactionCoordinates <- function(coords, columns, output=NULL) {
-  #.check.projectPath()
   if (xor(is.list(coords), is.list(columns))) {
     stop("either coords and columns are both lists (of same length), or none is")
   }
@@ -357,8 +341,6 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
     coords <- list(coords)
     columns <- list(columns)
   }
-  # get project information
-  #pd <- projectInfo()
   if (is.null(output)) {
     # generate filenames
     id <- length(pd$reactionCoords) + 1
@@ -367,13 +349,12 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
   } else {
     coords_fname <- output
   }
+
   desc_fname <- paste(output, ".desc", sep="")
 
-
-  if (file.exists(desc_fname) | file.exists(coords_fname)) {
+  if (file.exists(desc_fname)|file.exists(coords_fname)) {
     warning("no reaction coordinates generated: file exists")
   } else {
-    #coords <- lapply(coords, function(c) {get.fullPath(c)})
     # generate description
     desc <- do.call(c, lapply(1:length(coords),
                               function(i) {
@@ -403,8 +384,6 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
                  "\"")
     system(cmd)
   }
-
-  #.update()
 }
 
 #' filter a data set
