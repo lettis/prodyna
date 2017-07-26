@@ -2,21 +2,27 @@
 #' Compute dihedral angles.
 #'
 #' Dihedral angles for the given trajectory are computed using gmx.
-#' The result is saved to <traj>.dih.
+#' The result is saved to <traj>.dih. A file <traj>.dih.info is generated
+#' containing additional information.
 #'
 #' @param ref Character, name of the PDB file describing the reference structure.
 #' @param traj Character, name of the XTC file describing the trajectory.
-#' @param skipCA Numerical vector, C\eqn{\alpha} indices to be skipped.
-#'   If \code{NULL} (default) first and last C\eqn{\alpha} indices are skipped
+#' @param skipCA Numerical vector, C\eqn{_\alpha} indices to be skipped.
+#'   If \code{NULL} (default) first and last C\eqn{_\alpha} indices are skipped
 #'   (incomplete dihedrals at terminal regions).
 #' @param ignoreCache Logical, if \code{TRUE} recompute even if output file
-#'   already exists (default: \code{FALSE}).
+#'   already exists (default: \code{FALSE}). Generates a warning if cached files
+#'   exist.
 #' @export
 generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
   # output file
   fname_dihedrals <- paste(traj, ".dih", sep="")
+  fname_dihedrals_info <- paste(traj, ".dih.info", sep="")
 
-  if (!file.exists(fname_dihedrals)|ignoreCache){
+  #if (file.exists(fname_dihedrals) & file.exists(fname_dihedrals_info)) {
+  #  dih_info <- read.dihedrals.info(fname_dihedrals_info)
+
+  if (!file.exists(fname_dihedrals)|ignoreCache) {
     filter.backbone <- function(pdb) {
       pdb$atom$elety == "N" |
       pdb$atom$elety == "CA" |
@@ -31,10 +37,12 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 
     # remove skipCA indices
     if (is.null(skipCA)) {
-      # default: remove first and last calpha
+      # default: remove first and last C_alpha
+      resnos <- 2:(length(calpha_indices)-1)
       calpha_indices <- head(calpha_indices, -1)[-1]
     } else {
-      calpha_indices <- calpha_indices[!(1:length(calpha_indices) %in% skipCA)]
+      resnos <- (1:length(calpha_indices))[!(1:length(calpha_indices) %in% skipCA)]
+      calpha_indices <- calpha_indices[resnos]
     }
     bb <- pdb_ref$atom$eleno[filter.backbone(pdb_ref)]
     dih_indices <- lapply(calpha_indices, function(ca){
@@ -76,13 +84,23 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
                  fname_dihedrals)
     run.cmds(cmds)
 
+    # write .dih.info file
+    write(paste(paste("reference",  ref),
+                paste("trajectory", traj),
+                paste("residuals", paste(resnos, collapse=" ")),
+                paste("skippedDefault", is.null(skipCA)),
+                sep = "\n"
+                ),
+          file = fname_dihedrals_info
+          )
+
     # cleanup
     unlink(tmp_ndx)
     unlink("angdist.xvg")
     unlink(fname_xvg)
     print("Done.")
   } else {
-    print("Dihedral file already exists.")
+    warning(msg.warn("caching", arg="generate.dihedrals"))
   }
 }
 
@@ -136,21 +154,6 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
   } else {
     print("PCA output files already exist.")
   }
-}
-
-#' dPCA
-#'
-#' Run dPCA on cos/sin transformed angles.
-#'
-#' @param cossin Filename of cos/sin transformed data.
-#' @param corr Use correlation instead of covariance.
-#'             Effectively whitens the data before doing analysis.
-#' @param ignoreCache Ignore cached files and recalculate in any case.
-#' @export
-run.dPCA <- function(cossin, corr=FALSE, ignoreCache=FALSE) {
-  run.PCA(coords=cossin,
-          corr=corr,
-          ignoreCache=ignoreCache)
 }
 
 

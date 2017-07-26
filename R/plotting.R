@@ -114,7 +114,7 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
 #' @param pcs Numerical vector, PC indices.
 #' @param corr Logical, if \code{TRUE} use correlation-based PCA (default:
 #'   \code{FALSE}).
-#' @import ggplot2, GGally, data.table
+#' @import ggplot2 GGally data.table
 #' @export
 plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
   if (corr) {
