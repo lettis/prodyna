@@ -1,6 +1,10 @@
 
 
-#' transform x -> -log(x) for plotting
+#' \eq{-\log(x)} transformation.
+#'
+#' Transform \eq{x} to \eq{-\log(x)} for plotting.
+#'
+#' @param base Numeric, base to which the logarithm is computed.
 .reverselog_trans <- function(base = exp(1)) {
   trans <- function(x) -log(x, base)
   inv <- function(x) base^(-x)
@@ -18,7 +22,7 @@
 #' Plot the distribution of \eqn{\phi} and \eqn{\psi}} angles of the residue
 #' with the given number.
 #'
-#' @param resno Numerical, residue number.
+#' @param resno Numeric, residue number.
 #' @param dihedrals Character or data.frame, name of the .dih file or data.frame
 #'   containing the dihedral angles.
 #' @param reslabel Character, label of the residue (to be used in the title).

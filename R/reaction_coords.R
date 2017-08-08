@@ -5,9 +5,21 @@
 #' The result is saved to <traj>.dih. A file <traj>.dih.info is generated
 #' containing additional information.
 #'
+#' If \code{ignoreCache} is set to \code{FALSE}, both output files already exist
+#' and the skipped residuals in the .dih.info match \code{skipCA}, no
+#' computation is performed.
+#' In any other case, the results are recomputed (and potentially existing
+#' output files are overwritten). \cr
+#' The <traj>.dih.info file has the following format (all fields are separated
+#' by a single space): \cr
+#' \code{reference} <normalized path to .pdb file>} \cr
+#' \code{trajectory} <normalized path to .xtc file> \cr
+#' \code{nResiduals} <integer> \cr
+#' \code{skippedResiduals} <space separated integers>}
+#'
 #' @param ref Character, name of the PDB file describing the reference structure.
 #' @param traj Character, name of the XTC file describing the trajectory.
-#' @param skipCA Numerical vector, C\eqn{_\alpha} indices to be skipped.
+#' @param skipCA Numeric vector, C\eqn{_\alpha} indices to be skipped.
 #'   If \code{NULL} (default) first and last C\eqn{_\alpha} indices are skipped
 #'   (incomplete dihedrals at terminal regions).
 #' @param ignoreCache Logical, if \code{TRUE} recompute even if output file
@@ -15,93 +27,110 @@
 #'   exist.
 #' @export
 generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
+  ref <- normalizePath(ref)
+  traj <- normalizePath(traj)
+
   # output file
   fname_dihedrals <- paste(traj, ".dih", sep="")
   fname_dihedrals_info <- paste(traj, ".dih.info", sep="")
 
-  #if (file.exists(fname_dihedrals) & file.exists(fname_dihedrals_info)) {
-  #  dih_info <- read.dihedrals.info(fname_dihedrals_info)
+  # check if cached files exist
+  if (!ignoreCache &&
+      file.exists(fname_dihedrals) &&
+      file.exists(fname_dihedrals_info)) {
 
-  if (!file.exists(fname_dihedrals)|ignoreCache) {
-    filter.backbone <- function(pdb) {
-      pdb$atom$elety == "N" |
-      pdb$atom$elety == "CA" |
-      pdb$atom$elety == "C"
+    dihInfo <- read.dihedrals.info(fname_dihedrals_info)
+    nRes <- dihInfo$nRes
+    skipped <- dihInfo$skippedResnos
+
+    # check if the same residuals should be skipped
+    if ((is.null(skipCA) &&
+         all.equal(skipped, c(1, nRes))) ||
+        (!is.null(skipCA) &&
+         setequal(skipped, skipCA) )) {
+
+      return(warning(msg("caching", arg="generate.dihedrals")))
     }
-    pdb_ref <- bio3d::read.pdb(ref)
-
-    # correct for custom residue types
-    pdb_ref$calpha <- pdb_ref$atom$elety == "CA"
-    n_atoms <- length(pdb_ref$calpha)
-    calpha_indices <- pdb_ref$atom$eleno[pdb_ref$calpha]
-
-    # remove skipCA indices
-    if (is.null(skipCA)) {
-      # default: remove first and last C_alpha
-      resnos <- 2:(length(calpha_indices)-1)
-      calpha_indices <- head(calpha_indices, -1)[-1]
-    } else {
-      resnos <- (1:length(calpha_indices))[!(1:length(calpha_indices) %in% skipCA)]
-      calpha_indices <- calpha_indices[resnos]
-    }
-    bb <- pdb_ref$atom$eleno[filter.backbone(pdb_ref)]
-    dih_indices <- lapply(calpha_indices, function(ca){
-      i <- which(bb == ca)
-      phi <- c(bb[i-2], bb[i-1], bb[i], bb[i+1])
-      psi <- c(bb[i-1], bb[i], bb[i+1], bb[i+2])
-      c(phi, psi)
-    })
-    dih_indices <- do.call("c", dih_indices)
-
-    # prepare index file to identify backbone-dihedral atoms
-    tmp_ndx <- "tmp_phipsi.ndx"
-    unlink(tmp_ndx)
-    write("[PhiPsi]", tmp_ndx)
-    write(dih_indices, tmp_ndx, append=TRUE, ncolumns=4)
-
-    # compute dihedrals
-    fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
-    unlink(fname_xvg)
-
-    print("Running GMX to generate dihedrals.")
-
-    run.cmd("gmx", args = c("angle",
-                            " -f ",
-                            traj,
-                            " -n ",
-                            tmp_ndx,
-                            " -ov ",
-                            fname_xvg,
-                            " -type dihedral -all"))
-
-    # streamed xvg -> dih conversion
-    cmds <- paste(get.binary("awk"),
-                 "'!/^#.*/ && !/^@.*/ {for(i=3; i<=NF; ++i)",
-                 #"'{for(i=3; i<=NF; ++i)",
-                 "printf(\" %s\", $i); printf(\"\\n\")}'",
-                 fname_xvg,
-                 ">",
-                 fname_dihedrals)
-    run.cmds(cmds)
-
-    # write .dih.info file
-    write(paste(paste("reference",  ref),
-                paste("trajectory", traj),
-                paste("residuals", paste(resnos, collapse=" ")),
-                paste("skippedDefault", is.null(skipCA)),
-                sep = "\n"
-                ),
-          file = fname_dihedrals_info
-          )
-
-    # cleanup
-    unlink(tmp_ndx)
-    unlink("angdist.xvg")
-    unlink(fname_xvg)
-    print("Done.")
-  } else {
-    warning(msg.warn("caching", arg="generate.dihedrals"))
   }
+
+  filter.backbone <- function(pdb) {
+    pdb$atom$elety == "N" |
+    pdb$atom$elety == "CA" |
+    pdb$atom$elety == "C"
+  }
+  pdb_ref <- bio3d::read.pdb(ref)
+
+  # correct for custom residue types
+  pdb_ref$calpha <- pdb_ref$atom$elety == "CA"
+  n_atoms <- length(pdb_ref$calpha)
+  calpha_indices <- pdb_ref$atom$eleno[pdb_ref$calpha]
+
+  nRes <- length(calpha_indices)
+
+  # default: remove first and last C_alpha
+  if (is.null(skipCA)) {
+    skipCA <- c(1, nRes)
+  }
+
+  # remove skipCA indices
+  resnos <- (1:nRes)[-skipCA]
+  calpha_indices <- calpha_indices[resnos]
+
+  bb <- pdb_ref$atom$eleno[filter.backbone(pdb_ref)]
+  dih_indices <- lapply(calpha_indices, function(ca){
+    i <- which(bb == ca)
+    phi <- c(bb[i-2], bb[i-1], bb[i], bb[i+1])
+    psi <- c(bb[i-1], bb[i], bb[i+1], bb[i+2])
+    c(phi, psi)
+  })
+  dih_indices <- do.call("c", dih_indices)
+
+  # prepare index file to identify backbone-dihedral atoms
+  tmp_ndx <- "tmp_phipsi.ndx"
+  unlink(tmp_ndx)
+  write("[PhiPsi]", tmp_ndx)
+  write(dih_indices, tmp_ndx, append=TRUE, ncolumns=4)
+
+  # compute dihedrals
+  fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
+  unlink(fname_xvg)
+
+  print("Running GMX to generate dihedrals.")
+
+  run.cmd("gmx", args = c("angle",
+                          " -f ",
+                          traj,
+                          " -n ",
+                          tmp_ndx,
+                          " -ov ",
+                          fname_xvg,
+                          " -type dihedral -all"))
+
+  # streamed xvg -> dih conversion
+  cmds <- paste(get.binary("awk"),
+               "'!/^#.*/ && !/^@.*/ {for(i=3; i<=NF; ++i)",
+               #"'{for(i=3; i<=NF; ++i)",
+               "printf(\" %s\", $i); printf(\"\\n\")}'",
+               fname_xvg,
+               ">",
+               fname_dihedrals)
+  run.cmds(cmds)
+
+  # write .dih.info file
+  write(paste(paste("reference",  ref),
+              paste("trajectory", traj),
+              paste("nResiduals", nRes),
+              paste("skippedResiduals", paste(skipCA, collapse=" ")),
+              sep = "\n"
+              ),
+        file = fname_dihedrals_info
+        )
+
+  # cleanup
+  unlink(tmp_ndx)
+  unlink("angdist.xvg")
+  unlink(fname_xvg)
+  print("Done.")
 }
 
 #' Generate cos/sin transformed dihedrals.
