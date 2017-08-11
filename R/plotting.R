@@ -25,14 +25,17 @@
 #' @param resno Numeric, residue number.
 #' @param dihedrals Character or data.frame, name of the .dih file or data.frame
 #'   containing the dihedral angles.
+#' @param dihedralsInfo Character, name of the .dih.info file. \cr
+#'   This needs to be set only if \code{dihedrals} is the name of a .dih file
+#'   and the file name is not given by <dihedrals>.info
 #' @param reslabel Character, label of the residue (to be used in the title).
 #' @return ggplot object
 #' @import ggplot2
 #' @export
-plt.ramachandran <- function(resno, dihedrals, reslabel=NULL) {
+plt.ramachandran <- function(resno, dihedrals, dihedralsInfo=NULL, reslabel=NULL) {
 
   if (is.character(dihedrals)) {
-    dih <- read.dihedrals(dihedrals, resno)
+    dih <- read.dihedrals(dihedrals, dihedralsInfo, resno)
   } else {
     dih <- dihedrals
   }

@@ -11,15 +11,18 @@
 #' In any other case, the results are recomputed (and potentially existing
 #' output files are overwritten). \cr
 #' The <traj>.dih.info file has the following format (all fields are separated
-#' by a single space): \cr
-#' \code{reference} <normalized path to .pdb file>} \cr
-#' \code{trajectory} <normalized path to .xtc file> \cr
-#' \code{nResiduals} <integer> \cr
-#' \code{skippedResiduals} <space separated integers>}
+#' by a single space):
+#' \preformatted{
+#' reference <normalized path to .pdb file>
+#' trajectory <normalized path to .xtc file>r
+#' nResiduals <integer>
+#' skippedResiduals <space separated integers increasingly ordered>
+#' }
 #'
 #' @param ref Character, name of the PDB file describing the reference structure.
 #' @param traj Character, name of the XTC file describing the trajectory.
-#' @param skipCA Numeric vector, C\eqn{_\alpha} indices to be skipped.
+#' @param skipCA Numeric vector, C\eqn{_\alpha} indices to be skipped in
+#'   increasing order. \cr
 #'   If \code{NULL} (default) first and last C\eqn{_\alpha} indices are skipped
 #'   (incomplete dihedrals at terminal regions).
 #' @param ignoreCache Logical, if \code{TRUE} recompute even if output file
@@ -45,9 +48,9 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 
     # check if the same residuals should be skipped
     if ((is.null(skipCA) &&
-         all.equal(skipped, c(1, nRes))) ||
+         identical(skipped, c(1, nRes))) ||
         (!is.null(skipCA) &&
-         setequal(skipped, skipCA) )) {
+         identical(skipped, skipCA) )) {
 
       return(warning(msg("caching", arg="generate.dihedrals")))
     }
@@ -133,7 +136,9 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
   print("Done.")
 }
 
-#' Generate cos/sin transformed dihedrals.
+#' Cosine/Sine Transformation.
+#'
+#' Generate cos/sin-transformed dihedrals.
 #'
 #' @param dihedrals Character, name of .dih file containing dihedral angles.
 #' @param ignoreCache Logical, if \code{TRUE} recompute even if output file
@@ -149,11 +154,18 @@ generate.cossinTransform <- function(dihedrals, ignoreCache=FALSE) {
 
 #' PCA
 #'
-#' Run PCA on given coordinates.
+#' Run PCA on the given coordinates using fastpca. \cr
+#' The following files are created:
+#' \itemize{
+#' \item if \code{corr} is \code{FALSE}: <coords>.proj, <coords>.vec,
+#'       <coords>.val, <coords>.cov, <coords>.stats
+#' \item if \code{corr} is \code{TRUE}: <coords>.projn, <coords>.vecn,
+#'       <coords>.valn, <coords>.covn, <coords>.statsn
+#' }
 #'
 #' @param coords Character, name of file containing the coordinates.
 #' @param corr Logical, if \code{TRUE} use correlation instead of covariance.
-#'   Effectively whitens the data before doing analysis (default:
+#'   Effectively whitens the data before doing the analysis (default:
 #'   \code{FALSE}).
 #' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
 #'   already exist (default: \code{FALSE}).
@@ -181,7 +193,7 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
     run.cmd("fastpca", args=params)
     print(".. done.")
   } else {
-    print("PCA output files already exist.")
+    warning(msg("caching", "run.PCA"))
   }
 }
 
@@ -358,43 +370,42 @@ run.caPCA <- function(residue.mindist=4, residue.maxdist=NULL, corr=FALSE) {
 
 #' Generate reaction coordinates.
 #'
-#' Select subspace projection.
+#' Generate reaction coordinates by selecting columns of the coordinate file(s).
+#' An additional <output>.info file is generated giving additional information
+#' on which columns were selected.
 #'
-#' @param coords Either filename or list of filenames of coordinates.
-#' @param columns Select columns. Either single vector or
-#'                list of vectors as selection per coord file.
-#' @param output Output filename (default: NULL). If NULL, filename will be generated.
+#' @param coords Character, either single filename or list of filenames of the
+#'  coordinate file(s).
+#' @param columns Numeric, either single vector or list of vectors indicating
+#'  the columns to be selected per coordinate file.
+#' @param output Character, name of the output file.
+#' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
+#'  already exists (default: \code{FALSE}).
 #' @export
-generate.reactionCoordinates <- function(coords, columns, output=NULL) {
+generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FALSE) {
+
   if (xor(is.list(coords), is.list(columns))) {
-    stop("either coords and columns are both lists (of same length), or none is")
-  }
-  if ( ! is.list(coords)) {
+    stop("Either coordinate files and column selections are both lists, or none is")
+  } else if (is.list(coords) && length(coords) != length(columns)) {
+    stop("List of coordinate files and list of column selections must be of same length.")
+  } else {
     coords <- list(coords)
     columns <- list(columns)
   }
-  if (is.null(output)) {
-    # generate filenames
-    id <- length(pd$reactionCoords) + 1
-    output <- get.fullPath(paste("reaction_coords_", id, sep=""))
-    coords_fname <- paste(output, ".coords", sep="")
-  } else {
-    coords_fname <- output
-  }
 
-  desc_fname <- paste(output, ".desc", sep="")
+  fname_coords <- output
+  fname_info   <- paste(output, ".info", sep="")
 
-  if (file.exists(desc_fname)|file.exists(coords_fname)) {
-    warning("no reaction coordinates generated: file exists")
+  if (!ignoreCache && file.exists(fname_info) && file.exists(fname_coords)) {
+    warning(msg("caching", arg="generate.reactionCoordinates"))
   } else {
-    # generate description
-    desc <- do.call(c, lapply(1:length(coords),
+    # generate info file
+    info <- do.call(c, lapply(1:length(coords),
                               function(i) {
                                 paste(coords[[i]],
-                                      paste(columns[[i]],
-                                            collapse=" "))
+                                      paste(columns[[i]], collapse=" "))
                               }))
-    cat(desc, file=desc_fname, sep="\n")
+    cat(info, file=fname_info, sep="\n")
 
     # use awk, paste and bash to filter reaction coords
     pipes <- do.call(c, lapply(1:length(coords), function(i) {
@@ -407,14 +418,14 @@ generate.reactionCoordinates <- function(coords, columns, output=NULL) {
             coords[[i]],
             ")")
     }))
-    cmd <- paste(paste(get.binary("bash"), " -c \"", sep=""),
+    cmds <- paste(paste(get.binary("bash"), " -c \"", sep=""),
                  get.binary("paste"),
                  "-d ' '",
                  paste(pipes, collapse=" "),
                  ">",
                  coords_fname,
                  "\"")
-    system(cmd)
+    run.cmds(cmds)
   }
 }
 

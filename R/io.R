@@ -67,18 +67,16 @@ read.dihedrals.info <- function(dihedralsInfo) {
 }
 
 
-#' cumulative fluctuations for given PCA
+#' Read cumulative fluctuations.
+#'
+#' Read cumulative fluctuations for the given PCA procedure.
+#'
 #' @param pca Selected PCA-procedure
 #' @param corr Use correlation-based PCA
 #' @return cumulative fluctuations
-#' @examples
-#' p <- prodyna::projectInfo()
-#' prodyna::read.cumFlucts(p$dPCAplus)
-#' prodyna::read.cumFlucts(p$caPCA$dist_3_6, corr=TRUE)
 #' @export
 read.cumFlucts <- function(pca, corr=FALSE) {
-  .check.projectPath()
-  #TODO test if exists, else run
+
   if (corr) {
     vals <- data.table::fread(pca$valn)
   } else {
