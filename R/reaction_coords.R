@@ -98,7 +98,7 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
   fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
   unlink(fname_xvg)
 
-  print("Running GMX to generate dihedrals.")
+  message("Running GMX to generate dihedrals.")
 
   run.cmd("gmx", args = c("angle",
                           " -f ",
@@ -133,7 +133,7 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
   unlink(tmp_ndx)
   unlink("angdist.xvg")
   unlink(fname_xvg)
-  print("Done.")
+  message("Done.")
 }
 
 #' Cosine/Sine Transformation.
@@ -189,9 +189,9 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
       params <- c(params, "-N")
     }
     params <- c(params, additionalParams)
-    print("Running 'fastpca'..")
+    message("Running 'fastpca'..")
     run.cmd("fastpca", args=params)
-    print(".. done.")
+    message(".. done.")
   } else {
     warning(msg("caching", "run.PCA"))
   }
