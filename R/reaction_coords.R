@@ -407,11 +407,12 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
 
   # caching
   if (!ignoreCache && file.exists(fname_info) && file.exists(fname_coords)) {
-    stored_info <- scan(fname_info, what=character(), sep="\n")
+      stored_info <- scan(fname_info, what=character(), sep="\n", quiet=TRUE)
 
     if (identical(stored_info, info)) {
       return(warning(msg("caching", arg="generate.reactionCoordinates")))
     }
+  }
 
   # write info file
   cat(info, file=fname_info, sep="\n")
