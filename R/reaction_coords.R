@@ -386,8 +386,10 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
 
   if (xor(is.list(coords), is.list(columns))) {
     stop("Either coordinate files and column selections are both lists, or none is")
-  } else if (is.list(coords) && length(coords) != length(columns)) {
-    stop("List of coordinate files and list of column selections must be of same length.")
+  } else if (is.list(coords)) {
+    if (length(coords) != length(columns)) {
+      stop("List of coordinate files and list of column selections must be of same length.")
+    }
   } else {
     coords <- list(coords)
     columns <- list(columns)
@@ -396,37 +398,43 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
   fname_coords <- output
   fname_info   <- paste(output, ".info", sep="")
 
-  if (!ignoreCache && file.exists(fname_info) && file.exists(fname_coords)) {
-    warning(msg("caching", arg="generate.reactionCoordinates"))
-  } else {
-    # generate info file
-    info <- do.call(c, lapply(1:length(coords),
-                              function(i) {
-                                paste(coords[[i]],
-                                      paste(columns[[i]], collapse=" "))
-                              }))
-    cat(info, file=fname_info, sep="\n")
+  # info file
+  info <- do.call(c, lapply(1:length(coords),
+                            function(i) {
+                              paste(coords[[i]],
+                                    paste(columns[[i]], collapse=" "))
+                            }))
 
-    # use awk, paste and bash to filter reaction coords
-    pipes <- do.call(c, lapply(1:length(coords), function(i) {
-      cols <- paste(paste("\\$", columns[[i]], sep=""), collapse=", ")
-      paste("<(",
-            get.binary("awk"),
-            "'{print",
-            cols,
-            "}'",
-            coords[[i]],
-            ")")
-    }))
-    cmds <- paste(paste(get.binary("bash"), " -c \"", sep=""),
-                 get.binary("paste"),
-                 "-d ' '",
-                 paste(pipes, collapse=" "),
-                 ">",
-                 fname_coords,
-                 "\"")
-    run.cmds(cmds)
-  }
+  # caching
+  if (!ignoreCache && file.exists(fname_info) && file.exists(fname_coords)) {
+    stored_info <- scan(fname_info, what=character(), sep="\n")
+
+    if (identical(stored_info, info)) {
+      return(warning(msg("caching", arg="generate.reactionCoordinates")))
+    }
+
+  # write info file
+  cat(info, file=fname_info, sep="\n")
+
+  # use awk, paste and bash to filter reaction coords
+  pipes <- do.call(c, lapply(1:length(coords), function(i) {
+    cols <- paste(paste("\\$", columns[[i]], sep=""), collapse=", ")
+    paste("<(",
+          get.binary("awk"),
+          "'{print",
+          cols,
+          "}'",
+          coords[[i]],
+          ")")
+  }))
+  cmds <- paste(paste(get.binary("bash"), " -c \"", sep=""),
+               get.binary("paste"),
+               "-d ' '",
+               paste(pipes, collapse=" "),
+               ">",
+               fname_coords,
+               "\"")
+  run.cmds(cmds)
 }
 
 #' filter a data set
