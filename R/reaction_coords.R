@@ -423,7 +423,7 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
                  "-d ' '",
                  paste(pipes, collapse=" "),
                  ">",
-                 coords_fname,
+                 fname_coords,
                  "\"")
     run.cmds(cmds)
   }

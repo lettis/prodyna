@@ -1,21 +1,29 @@
 
-#' Radii estimation for density-based clustering
-#' @param rc Reaction coordinates.
-#' @param radii Vector of radii to test.
+#' Radii estimation for density-based clustering.
+#'
+#' @param coords Character, name of the reaction coordinates file.
+#' @param radii Numeric vector, radii to test.
+#' @param dir Character, name of the output directory. If \code{NULL} the output
+#'  directory is <coords>.clustering. \cr
+#'  If the ouput directory is created if it does not exist already.
 #' @export
-clustering.estimate.radii <- function(rc, radii) {
+clustering.estimate.radii <- function(coords, radii, dir=NULL) {
+
+  if (is.null(dir)) {
+    dir <- normalizePath(paste(coords, "clustering", sep="."))
+  }
   # create clustering directory
-  suppressWarnings(cls_dir <- normalizePath(paste(rc, "clustering", sep=".")))
-  if (!dir.exists(cls_dir)) {
-    dir.create(cls_dir)
+  if (!dir.exists(dir)) {
+    message(paste("Creating output directory", dir))
+    dir.create(dir)
   }
   # create link to reaction coords
-  rc_link <- paste(cls_dir, "reaction_coords", sep="/")
-  if (!file.exists(rc_link)) {
-    file.symlink(normalizePath(rc), rc_link)
+  coords_link <- paste(dir, "reaction_coords", sep="/")
+  if (!file.exists(coords_link)) {
+    file.symlink(normalizePath(coords), coords_link)
   }
   # run clustering
-  cmd <- paste("cd", cls_dir, ";")
+  cmd <- paste("cd", dir, ";")
   cmd <- paste(cmd,
                get.binary("clustering"),
                "density",
