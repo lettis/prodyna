@@ -70,9 +70,15 @@ run.cmd <- function(cmd, args) {
 #'
 #' @param cmds  Character, name of binary to run.
 run.cmds <- function(cmds) {
-  tryCatch(
-    system(cmds, intern = TRUE),
-    error   = function(c) {stop(msg("noExec", cmds), call. = FALSE)},
-    warning = function(c) {stop(c[[1]], call. = FALSE)}
+  err_msg = paste("Error occured executing the following command:",
+                  cmds,
+                  sep ="\n")
+  status = tryCatch(
+    expr    = system(cmds, intern = FALSE),
+    error   = function(c) {stop(err_msg)},
+    warning = function(c) {stop(err_msg)}
     )
+  if (status != 0) {
+    stop(err_msg)
+  }
 }

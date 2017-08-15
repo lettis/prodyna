@@ -395,8 +395,9 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
     columns <- list(columns)
   }
 
+  #fname_coords <- normalizePath(output)
   fname_coords <- output
-  fname_info   <- paste(output, ".info", sep="")
+  fname_info   <- paste(fname_coords, ".info", sep="")
 
   # info file
   info <- do.call(c, lapply(1:length(coords),
@@ -435,7 +436,9 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
                ">",
                fname_coords,
                "\"")
+
   run.cmds(cmds)
+  # todo unlink(c(fname_coords, fname_info) on failure
 }
 
 #' filter a data set
