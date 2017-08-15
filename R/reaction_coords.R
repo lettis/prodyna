@@ -30,9 +30,6 @@
 #'   exist.
 #' @export
 generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
-  ref <- normalizePath(ref)
-  traj <- normalizePath(traj)
-
   # output file
   fname_dihedrals <- paste(traj, ".dih", sep="")
   fname_dihedrals_info <- paste(traj, ".dih.info", sep="")
@@ -100,14 +97,19 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 
   message("Running GMX to generate dihedrals.")
 
-  run.cmd("gmx", args = c("angle",
-                          " -f ",
-                          traj,
-                          " -n ",
-                          tmp_ndx,
-                          " -ov ",
-                          fname_xvg,
-                          " -type dihedral -all"))
+  run.cmd("gmx",
+          args = c("angle",
+                   " -f ",
+                   traj,
+                   " -n ",
+                   tmp_ndx,
+                   " -ov ",
+                   fname_xvg,
+                   " -type dihedral -all"),
+          onError=function() {unlink(fname_dihedrals,
+                                     fname_dihedrals_info,
+                                     fname_xvg,
+                                     tmp_ndx)})
 
   # streamed xvg -> dih conversion
   cmds <- paste(get.binary("awk"),
@@ -117,7 +119,10 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
                fname_xvg,
                ">",
                fname_dihedrals)
-  run.cmds(cmds)
+  run.cmds(cmds, onError=function() {unlink(fname_dihedrals,
+                                            fname_dihedrals_info,
+                                            fname_xvg,
+                                            tmp_ndx)})
 
   # write .dih.info file
   write(paste(paste("reference",  ref),
@@ -395,7 +400,6 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
     columns <- list(columns)
   }
 
-  #fname_coords <- normalizePath(output)
   fname_coords <- output
   fname_info   <- paste(fname_coords, ".info", sep="")
 
@@ -435,10 +439,16 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
                paste(pipes, collapse=" "),
                ">",
                fname_coords,
-               "\"")
+               "\" 2>& 1")
 
-  run.cmds(cmds)
-  # todo unlink(c(fname_coords, fname_info) on failure
+  output <- run.cmds(cmds, onError=function() {unlink(c(fname_info, fname_coords))})
+
+  # check for stderr output (due to command substitution the error can not be
+  # caught by run.cmds)
+  if (length(output) > 0) {
+    unlink(c(fname_info, fname_coords))
+    stop(paste(output, msg("noExec", arg=cmds), sep="\n"), call.=F)
+  }
 }
 
 #' filter a data set

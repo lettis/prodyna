@@ -52,11 +52,16 @@ list.binaries <- function() {
 #'
 #' @param cmd Character, name of binary to run.
 #' @param args Character vector, arguments to the command.
-run.cmd <- function(cmd, args) {
+run.cmd <- function(cmd, args, onError=function(){}) {
+  errorAction <- function(c) {
+    onError()
+    stop(msg("noExec", paste(get.binary(cmd), paste(args, collapse =" "))),
+         call. = F)
+  }
   tryCatch(
     system2(get.binary(cmd), args, stdout = TRUE, stderr = TRUE),
-    error   = function(c) {stop(msg("noExec", cmd), call. = FALSE)},
-    warning = function(c) {stop(c[[1]], call. = FALSE)}
+    error   = errorAction,
+    warning = errorAction
   )
 }
 
@@ -68,17 +73,15 @@ run.cmd <- function(cmd, args) {
 #' if the command gives a non-zero exit status.
 #' Use \code{\link{run.cmd}} for a single command.
 #'
-#' @param cmds  Character, name of binary to run.
-run.cmds <- function(cmds) {
-  err_msg = paste("Error occured executing the following command:",
-                  cmds,
-                  sep ="\n")
-  status = tryCatch(
-    expr    = system(cmds, intern = FALSE),
-    error   = function(c) {stop(err_msg)},
-    warning = function(c) {stop(err_msg)}
-    )
-  if (status != 0) {
-    stop(err_msg)
+#' @param cmds  Character, string of commands to be run.
+run.cmds <- function(cmds, onError=function(){}) {
+  errorAction <- function(c) {
+    onError()
+    stop(msg("noExec", cmds), call. = F)
   }
+  output = tryCatch(
+    expr    = system(cmds, intern = TRUE),
+    error   = errorAction,
+    warning = errorAction
+    )
 }

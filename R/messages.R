@@ -24,8 +24,7 @@ msg <- function(type, arg=NULL) {
   switch(type,
     caching = paste(arg, ": ",
                     "Output file(s) already exist. Nothing to compute.\n", sep=""),
-    noExec  = paste("Could not execute ", arg,
-                    ". Adapt path to binary using 'set.binary'.\n", sep=""),
+    noExec  = paste("An error occured executing", arg, sep="\n"),
     "Unknown warning or error.\n"
     )
 }
