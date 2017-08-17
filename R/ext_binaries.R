@@ -52,9 +52,12 @@ list.binaries <- function() {
 #'
 #' @param cmd Character, name of binary to run.
 #' @param args Character vector, arguments to the command.
-run.cmd <- function(cmd, args, onError=function(){}) {
+#' @param onError Function, function to be performed in case of an error.
+run.cmd <- function(cmd, args, onError=NULL) {
   errorAction <- function(c) {
-    onError()
+    if (!is.null(onError)) {
+      onError()
+    }
     stop(msg("noExec", paste(get.binary(cmd), paste(args, collapse =" "))),
          call. = F)
   }
@@ -74,9 +77,12 @@ run.cmd <- function(cmd, args, onError=function(){}) {
 #' Use \code{\link{run.cmd}} for a single command.
 #'
 #' @param cmds  Character, string of commands to be run.
-run.cmds <- function(cmds, onError=function(){}) {
+#' @param onError Function, function to be performed in case of an error.
+run.cmds <- function(cmds, onError=NULL) {
   errorAction <- function(c) {
-    onError()
+    if (!is.null(onError)) {
+      onError()
+    }
     stop(msg("noExec", cmds), call. = F)
   }
   output = tryCatch(

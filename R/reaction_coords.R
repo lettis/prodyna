@@ -87,6 +87,12 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
   fname_xvg <- paste(fname_dihedrals, ".xvg", sep="")
   unlink(fname_xvg)
 
+  # in case of an error delete all generated files
+  onError <- function() {unlink(c(fname_dihedrals,
+                                  fname_dihedrals_info,
+                                  fname_xvg,
+                                  tmp_ndx))}
+
   message("Running GMX to generate dihedrals.")
 
   run.cmd("gmx",
@@ -98,10 +104,7 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
                    " -ov ",
                    fname_xvg,
                    " -type dihedral -all"),
-          onError=function() {unlink(fname_dihedrals,
-                                     fname_dihedrals_info,
-                                     fname_xvg,
-                                     tmp_ndx)})
+          onError= onError)
 
   # streamed xvg -> dih conversion
   cmds <- paste(get.binary("awk"),
@@ -111,10 +114,7 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
                fname_xvg,
                ">",
                fname_dihedrals)
-  run.cmds(cmds, onError=function() {unlink(fname_dihedrals,
-                                            fname_dihedrals_info,
-                                            fname_xvg,
-                                            tmp_ndx)})
+  run.cmds(cmds, onError=onError)
 
   # write .dih.info file
   write.dihedrals.info(ref, traj, nRes, skipCA, fname_dihedrals_info)
