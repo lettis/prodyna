@@ -16,7 +16,6 @@
                     domain = c(1e-100, Inf))
 }
 
-
 #' Ramachandran plot.
 #'
 #' Plot the distribution of \eqn{\phi} and \eqn{\psi}} angles of the residue
@@ -64,19 +63,22 @@ plt.ramachandran <- function(resno, dihedrals, dihedralsInfo=NULL, reslabel=NULL
   return(p)
 }
 
-#' plot matrix
+#' Matrix plot.
 #'
 #' Plots a matrix as colored tiles.
-#' @param x Either a filename with the matrix in table format or a matrix object.
-#' @param diverge Use diverging color palette.
-#' @param fancy Fancy plotting with interactive elements (default: FALSE).
-#' @param zlim Limits for color scale, given as 2D vector.
-#'             default: NULL, i.e. min/max values of matrix.
+#'
+#' @param x Character or matrix object, filename of table-formatted file or a
+#'  matrix object.
+#' @param diverge Logical, should a diverging color palette be used?
+#'   (default:\code{FALSE}).
+#' @param fancy Logical, should fancy plotting with interactive elements be
+#'   performed? (default: \code{FALSE}).
+#' @param zlim Numeric vector, minimum and maximum value for color scale.
+#'   If \code{NULL} (default) limits are given by the min/max values of the matrix.
+#' @import ggplot2 dplyr plotly
+#' @return ggplot object
 #' @export
 plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
-  suppressMessages(require(ggplot2))
-  suppressMessages(require(dplyr))
-  suppressMessages(require(plotly))
   if (is.character(x)) {
     # interpret as filename
     M <- data.matrix(read.table(x))
@@ -104,8 +106,7 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   if (is.null(zlim)) {
     p <- p + scale_fill_distiller(palette=clr_palette)
   } else {
-    p <- p + scale_fill_distiller(palette=clr_palette,
-                                  limits=zlim)
+    p <- p + scale_fill_distiller(palette=clr_palette, limits=zlim)
   }
   # fancy plotting for Rnotebooks
   if (fancy) {
@@ -114,8 +115,7 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
           layout(xaxis=list(fixedrange=TRUE)) %>%
           layout(yaxis=list(fixedrange=TRUE))
   }
-
-  p
+  return(p)
 }
 
 #' PCA overview
@@ -200,46 +200,23 @@ plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
   plt
 }
 
-#' plot 2d-proj for given PCA
+#' Plot a 2d-projection for a given PCA.
 #'
 #' plots a 2d free energy landscape (in kT) for the given PCA projection.
-#' @param pca Either a PCA reference from the project (e.g. prodyna::projectInfo()$dPCAplus), or a filename.
-#' @param dim1 First dimension to plot (default: 1).
-#' @param dim2 Second dimension to plot (default: 2).
-#' @param corr Plot projections of correlation based PCA. Only works with project reference (default: FALSE).
-#' @param diverge Use a diverging color scale to emphasize differences.
-#'                Default is FALSE.
+#' @param pca Character, filename of the .proj file containing the PCs.
+#' @param dim1 Numeric, index of PC to be used as first dimension
+#'  (default: 1).
+#' @param dim2 Numeric, index of PC to be used as second dimension
+#'  (default: 2).
+#' @param diverge Logical, should a diverging color scale be used?
+#'  (default: \code{FALSE})
+#' @import data.table ggplot2 dplyr
 #' @export
-plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
-  suppressMessages(require(data.table))
-  suppressMessages(require(ggplot2))
-  suppressMessages(require(dplyr))
+plt.pcaProj <- function(pca, dim1=1, dim2=2, diverge=FALSE) {
 
-  file_read <- function(fname) {
-    fread(fname,
-          select=c(dim1, dim2),
-          verbose=FALSE,
-          showProgress=FALSE)
-  }
+  pcs <- fread(pca, select=c(dim1, dim2), verbose=FALSE, showProgress=FALSE)
 
-  if (is.data.frame(proj)) {
-    proj <- proj %>% select(dim1, dim2)
-  } else {
-    if (is.list(pca)) {
-      .check.projectPath()
-      if (corr) {
-        .check.filesExist(c(pca$projn, pca$vecn))
-        proj <- file_read(pca$projn)
-      } else {
-        .check.filesExist(c(pca$proj, pca$vec))
-        proj <- file_read(pca$proj)
-      }
-    } else {
-      proj <- file_read(pca)
-    }
-  }
-
-  colnames(proj) <- c("x", "y")
+  colnames(pcs) <- c("x", "y")
 
   if (diverge) {
     # diverging color scale
@@ -249,7 +226,7 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
     color_palette <- "YlGnBu"
   }
 
-  ggplot(proj) +
+  ggplot(pcs) +
     geom_bin2d(bins=200,
                aes(x=x,
                    y=y,
@@ -262,7 +239,7 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
     theme_bw()
 }
 
-#' plot cumulative fluctuations
+#' Plot cumulative fluctuations.
 #'
 #' Takes all available PCAs and plots their cumulative fluctuations in a single plot.
 #' @export
@@ -308,31 +285,23 @@ plt.cumFlucts <- function() {
     theme_bw()
 }
 
-## plot autocorrelation of observables
-##   coords: input file with coordinates
-##   columns: vector of column indices to use
-##   corrlength: extend of autocorrelation computation.
-##               if < 1, ratio of number of data points
-
-#' plot autocorrelation of observables
+#' Plot autocorrelation of observables.
 #'
-#' @param coords Filename of coordinates or list of filenames.
-#' @param lag.max The maximal lagtime. If < 1 (default: 0.25),
-#'                interpret as ratio to total length,
-#'                else given in number of timesteps.
-#' @param columns Vector with column indices of observables to compute ACF for.
-#' @param circular Compute ACF for circular variables (e.g. dihedral angles).
-#' @param dt Timestep in [ps]. If given, time axis will be scaled accordingly.
-#'           Default: NULL, i.e. express time in number of timesteps.
+#' @param coords Character, filename of coordinates or list of filenames.
+#' @param lag.max Numeric, maximal lagtime. If < 1 (default: 0.25), this is
+#'  interpreted as a ratio to the total length. Otherwise the lagtime is
+#'  assumed to be given in number of timesteps.
+#' @param columns Numeric vector, column indices of observables to compute
+#'  ACF for.
+#' @param circular Logical, should ACF be computed for circular variables,
+#'  e.g. dihedral angles? (default: \code{FALSE})
+#' @param dt Numeric, timestep in [ps]. If not \code{NULL}, the time axis
+#'  will be scaled accordingly. Otherwise (default) time is expressed in the
+#'  number of timesteps.
+#' @import ggplot2 data.table
 #' @export
 plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) {
-  suppressMessages(require(ggplot2))
-  suppressMessages(require(data.table))
-
   compute_acf <- function(fname) {
-    if ( ! file.exists(fname)) {
-      fname <- get.fullPath(fname)
-    }
     stats.autocor(fname,
                   columns = columns,
                   lag.max = lag.max,
@@ -413,19 +382,16 @@ plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) 
   p
 }
 
-#' plot state geometries as Ramacolor plots
+#' Ramacolor plots of state geometries.
 #'
-#' @param statetraj File with state trajectory
-#' @param states State selection for Ramacolor plot. Either a vector with state numbers, or NULL, meaning all (default).
-#' @param dihedrals File with dihedral angles. If NULL (default), take dihedrals from project.
+#' @param statetraj Character, filename of state trajectory file.
+#' @param states Numeric vector, indices of states to be plotted.
+#'  If \code{NULL} (default) all states are selected.
+#' @param dihedrals Character, filename of the .dih file specifying
+#'  dihedral angles.
+#' @import ggplot2
 #' @export
-plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
-  suppressMessages(require(ggplot2))
-  if (is.null(dihedrals)) {
-    .check.projectPath()
-    pd <- projectInfo()
-    dihedrals <- pd$dihedrals
-  }
+plt.ramacolor <- function(statetraj, states=NULL, dihedrals) {
   dih <- data.table::fread(dihedrals,
                            verbose = FALSE,
                            showProgress = FALSE)
@@ -435,7 +401,8 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
   if (is.null(states)) {
     states <- sort(unique(traj))
   }
-  n_residues <- ncol(dih) / 2
+  n_residues <- ncol(dih)/2
+
   # construct Ramacolor dataframe
   rc_data <- do.call("rbind", lapply(states, function(s) {
     sel_dih <- dih[traj == s, ]
@@ -456,12 +423,12 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals=NULL) {
     theme_bw()
 }
 
-#' plot state trajectory comparison
+#' Plot state trajectory comparison.
 #'
 #' Compare state trajectories based on their overlap of state populations.
 #' Trajectories must be of same length and must have identical state labels.
-#' Colored states are taken from traj1 and separate into black states, taken
-#' from traj2.
+#' Colored states are taken from \code{traj1} and separate into black states,
+#' taken from \code{traj2}.
 #'
 #' @param traj1 Either a vector encoding first state trajectory or
 #'              a filename pointing to the trajectory.
