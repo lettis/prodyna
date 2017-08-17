@@ -18,8 +18,7 @@
 
 #' Ramachandran plot.
 #'
-#' Plot the distribution of \eqn{\phi} and \eqn{\psi}} angles of the residue
-#' with the given number.
+#' Plot the distribution of \eqn{\phi} and \eqn{\psi} angles for a given residue.
 #'
 #' If \code{dihedrals} is a .dih file and \code{dihedralsInfo} is \code{NULL}
 #' then the .dih.info file is assumed to be named <dihedrals>.info
@@ -75,7 +74,11 @@ plt.ramachandran <- function(resno, dihedrals, dihedralsInfo=NULL, reslabel=NULL
 #'   performed? (default: \code{FALSE}).
 #' @param zlim Numeric vector, minimum and maximum value for color scale.
 #'   If \code{NULL} (default) limits are given by the min/max values of the matrix.
-#' @import ggplot2 dplyr plotly
+#' @import ggplot2
+#' @importFrom plotly ggplotly
+#' @importFrom plotly config
+#' @importFrom plotly layout
+#' @importFrom magrittr "%>%"
 #' @return ggplot object
 #' @export
 plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
@@ -101,7 +104,7 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
           theme_bw() +
           theme(axis.title.x=element_blank(),
                 axis.title.y=element_blank(),
-                legend.title = element_blank())
+                legend.title=element_blank())
   # set z-axis limits (if given)
   if (is.null(zlim)) {
     p <- p + scale_fill_distiller(palette=clr_palette)
@@ -126,7 +129,10 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
 #' @param pcs Numerical vector, PC indices.
 #' @param corr Logical, if \code{TRUE} use correlation-based PCA (default:
 #'   \code{FALSE}).
-#' @import ggplot2 GGally data.table
+#' @import ggplot2
+#' @importFrom data.table fread
+#' @importFrom GGally ggpairs
+#' @importFrom GGally putPlot
 #' @export
 plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
   if (corr) {
@@ -210,7 +216,8 @@ plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
 #'  (default: 2).
 #' @param diverge Logical, should a diverging color scale be used?
 #'  (default: \code{FALSE})
-#' @import data.table ggplot2 dplyr
+#' @import ggplot2
+#' @importFrom data.table fread
 #' @export
 plt.pcaProj <- function(pca, dim1=1, dim2=2, diverge=FALSE) {
 
@@ -298,7 +305,7 @@ plt.cumFlucts <- function() {
 #' @param dt Numeric, timestep in [ps]. If not \code{NULL}, the time axis
 #'  will be scaled accordingly. Otherwise (default) time is expressed in the
 #'  number of timesteps.
-#' @import ggplot2 data.table
+#' @import ggplot2
 #' @export
 plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) {
   compute_acf <- function(fname) {
