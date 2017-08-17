@@ -9,15 +9,7 @@
 #' and the skipped residuals in the .dih.info match \code{skipCA}, no
 #' computation is performed.
 #' In any other case, the results are recomputed (and potentially existing
-#' output files are overwritten). \cr
-#' The <traj>.dih.info file has the following format (all fields are separated
-#' by a single space):
-#' \preformatted{
-#' reference <normalized path to .pdb file>
-#' trajectory <normalized path to .xtc file>r
-#' nResiduals <integer>
-#' skippedResiduals <space separated integers increasingly ordered>
-#' }
+#' output files are overwritten).
 #'
 #' @param ref Character, name of the PDB file describing the reference structure.
 #' @param traj Character, name of the XTC file describing the trajectory.
@@ -125,14 +117,7 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
                                             tmp_ndx)})
 
   # write .dih.info file
-  write(paste(paste("reference",  ref),
-              paste("trajectory", traj),
-              paste("nResiduals", nRes),
-              paste("skippedResiduals", paste(skipCA, collapse=" ")),
-              sep = "\n"
-              ),
-        file = fname_dihedrals_info
-        )
+  write.dihedrals.info(ref, traj, nRes, skipCA, fname_dihedrals_info)
 
   # cleanup
   unlink(tmp_ndx)
