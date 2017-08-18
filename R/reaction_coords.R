@@ -136,7 +136,10 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 #' @export
 generate.cossinTransform <- function(dihedrals, ignoreCache=FALSE) {
   output <- paste(dihedrals, "cossin", sep=".")
-  if (!file.exists(output)|ignoreCache) {
+
+  if (!ignoreCache && file.exists(output)) {
+    warning(msg("caching", arg="generate.cossinTransform"))
+  } else {
     streamed_cossin_transform(dihedrals, output)
   }
 }
@@ -168,10 +171,13 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
     results <- paste(results, "n", sep="")
   }
   results <- paste(coords, results, sep=".")
-  # results already computed?
-  cached_results_missing <- (!all(file.exists(results)))
 
-  if (ignoreCache | cached_results_missing) {
+  # results already computed?
+  outputFilesExist <- all(file.exists(results))
+
+  if (!ignoreCache && outputFilesExist) {
+    warning(msg("caching", "run.PCA"))
+  } else {
     # setup 'fastpca' parameters
     params <- c("-f", "-p", "-v", "-l", "-c", "-s")
     params <- c(rbind(params, c(coords, results)))
@@ -182,8 +188,6 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
     message("Running 'fastpca'..")
     run.cmd(get.binary("fastpca"), args=params)
     message(".. done.")
-  } else {
-    warning(msg("caching", "run.PCA"))
   }
 }
 
@@ -196,7 +200,7 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
 #' @param corr Logical, if \code{TRUE} use correlation instead of covariance.
 #'  Effectively whitens the data before doing analysis (default: \code{FALSE}).
 #' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
-#'   already exists (default: \code{FALSE}).
+#'   already exist (default: \code{FALSE}).
 #' @export
 run.dPCAplus <- function(dihedrals, corr=FALSE, ignoreCache=FALSE) {
   run.PCA(coords=dihedrals,
@@ -206,156 +210,126 @@ run.dPCAplus <- function(dihedrals, corr=FALSE, ignoreCache=FALSE) {
 }
 
 
-### TODO: caching for all functions below!
-
-
-#' generate trajectory with C\eqn{\alpha} distances as coordinates
+#' C\eqn{\alpha} distances.
+#'
+#' Generate a trajectory with C\eqn{\alpha} distances as coordinates.
+#'
+#' @param ref Character, name of the PDB file describing the reference structure.
+#' @param traj Character, name of the XTC file describing the trajectory.
+#' @param residue.mindist (default: 4)
+#' @param residue.maxdist (default:\code{NULL})
+#' @param ignoreCache Logical, if \code{TRUE} recompute even if output file
+#'   already exists (default: \code{FALSE}).
 #' @export
-generate.caDistances <- function(residue.mindist=4, residue.maxdist=NULL) {
-  .check.projectPath()
-  # get project description
-  pd <- projectInfo()
+generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=NULL, ignoreCache=FALSE) {
 
-  pdb <- bio3d::read.pdb(pd$ref)
+  pdb <- bio3d::read.pdb(ref)
   calpha_ndx <- pdb$atom$eleno[pdb$atom$elety == "CA"]
   n_res <- length(calpha_ndx)
   res_ndx <- 1:n_res
+
   if (is.null(residue.maxdist)) {
     residue.maxdist <- n_res
   }
-  ca_comb <- combn(calpha_ndx, 2)
-  ca_pairs <- do.call("rbind",
-                      Filter(Negate(is.null),
-                             lapply(1:ncol(ca_comb), function(i) {
-                               res1 <- res_ndx[calpha_ndx == ca_comb[1,i]]
-                               res2 <- res_ndx[calpha_ndx == ca_comb[2,i]]
-                               pair <- NULL
-                               if (res1 < res2) {
-                                 d_res <- res2-res1
-                                 if (residue.mindist <= d_res & d_res <= residue.maxdist) {
-                                   pair <- c(ca_comb[1,i], ca_comb[2,i])
-                                 }
-                               }
-                               pair
-                             })))
+  # TODO: more descriptive name?
+  fname_ca_dists <- paste(traj, "caDist", residue.mindist, residue.maxdist, sep=".")
 
-  ca_dist_fname <- caDistFilename(pd$traj,
-                                  residue.mindist,
-                                  residue.maxdist)
-  ndx_fname <- paste(ca_dist_fname,
-                     ".ndx",
-                     sep="")
-  # write new index file with distance pairs
-  unlink(ndx_fname)
-  for (i in 1:nrow(ca_pairs)) {
-    write(paste("[ Dist",
-                i,
-                " ]\n",
-                ca_pairs[i,1],
-                " ",
-                ca_pairs[i,2],
-                sep=""),
-          file=ndx_fname,
-          append=TRUE)
-  }
-  # compute distances with gromacs
-  system2(gmx.binary, c("distance",
-                        "-f",
-                        pd$traj,
-                        "-n",
-                        ndx_fname,
-                        "-oall",
-                        "-select",
-                        seq(0, (nrow(ca_pairs)-1))))
-  # reformat data
-  system(paste("grep -v \"#\" dist.xvg | grep -v \"@\" ",
-               "| ",
-               awk.binary,
-               " '{for(i=2; i <=NF; ++i)",
-               "{printf(\" %s\", $i)} printf(\"\\n\")}'",
-               " > ",
-               ca_dist_fname,
-               sep=""))
-  # remove intermediate file
-  unlink("dist.xvg")
-  # update project information
-  if (is.null(pd$caDists)) {
-    pd$caDists <- ca_dist_fname
+  if (!ignoreCache && file.exists(fname_ca_dists)) {
+    warning(msg("caching", "generate.caDistances"))
+
   } else {
-    pd$caDists <- c(pd$caDists, ca_dist_fname)
-  }
+    ca_comb  <- combn(calpha_ndx, 2)
+    ca_pairs <- do.call("rbind",
+                        Filter(Negate(is.null),
+                               lapply(1:ncol(ca_comb), function(i) {
+                                 res1 <- res_ndx[calpha_ndx == ca_comb[1,i]]
+                                 res2 <- res_ndx[calpha_ndx == ca_comb[2,i]]
+                                 pair <- NULL
+                                 if (res1 < res2) {
+                                   d_res <- res2-res1
+                                   if (residue.mindist <= d_res & d_res <= residue.maxdist) {
+                                     pair <- c(ca_comb[1,i], ca_comb[2,i])
+                                   }
+                                 }
+                                 pair
+                               })))
 
-  .update()
+    fname_ndx <- paste(fname_ca_dists, ".ndx", sep="")
+
+    # write new index file with distance pairs
+    unlink(fname_ndx)
+    for (i in 1:nrow(ca_pairs)) {
+      write(paste("[ Dist",
+                  i,
+                  " ]\n",
+                  ca_pairs[i,1],
+                  " ",
+                  ca_pairs[i,2],
+                  sep=""),
+            file=fname_ndx,
+            append=TRUE)
+    }
+    # compute distances with gromacs
+    run.cmd(get.binary("gmx"), c("distance",
+                                 "-f",
+                                 traj,
+                                 "-n",
+                                 fname_ndx,
+                                 "-oall",
+                                 "-select",
+                                 seq(0, (nrow(ca_pairs)-1))))
+    # reformat data
+    run.cmds(paste("grep -v \"#\" dist.xvg | grep -v \"@\" ",
+                 "| ",
+                 awk.binary,
+                 " '{for(i=2; i <=NF; ++i)",
+                 "{printf(\" %s\", $i)} printf(\"\\n\")}'",
+                 " > ",
+                 fname_ca_dists,
+                 sep=""))
+    # remove intermediate file
+    unlink("dist.xvg")
+  }
 }
 
-#' run C\eqn{\alpha} distance PCA
+#' PCA on C\eqn{\alpha} distance.
+#'
+#' Run PCA on a trajectory of C\eqn{\alpha} distances.
+#' @param caDists Character, name of file containing the C\eqn{\alpha} distances.
+#' @param residue.mindist (default: 4)
+#' @param residue.maxdist (default:\code{NULL})
+#' @param corr Logical, if \code{TRUE} use correlation instead of covariance.
+#'   Effectively whitens the data before doing the analysis (default:
+#'   \code{FALSE}).
+#' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
+#'   already exist (default: \code{FALSE}).
 #' @export
-run.caPCA <- function(residue.mindist=4, residue.maxdist=NULL, corr=FALSE) {
-  .check.projectPath()
-  # get project information
-  pd <- projectInfo()
-  ca_dist_fname <- caDistFilename(pd$traj,
-                                  residue.mindist,
-                                  min(residue.maxdist,
-                                      get.nResidues(pd$ref)))
-  if (! ca_dist_fname %in% pd$caDists) {
-    pd <- generate.caDistances(pd,
-                               residue.mindist=residue.mindist,
-                               residue.maxdist=residue.maxdist)
-  }
-  if (is.null(pd$caPCA)) {
-    pd$caPCA <- list()
-  }
-  pca_label <- paste(residue.mindist,
-                     "_",
-                     residue.maxdist,
-                     sep="")
-  pd$caPCA[[pca_label]] <- list()
-  if (corr) {
-    postfix <- "n"
-  } else {
-    postfix <- ""
-  }
-  for (name in c("proj", "vec", "val", "cov", "stats")) {
-    pd$caPCA[[pca_label]][[paste(name, postfix, sep="")]] <- paste(ca_dist_fname,
-                                                                   ".",
-                                                                   name,
-                                                                   postfix,
-                                                                   sep="")
-  }
-  # run PCA
-  if (corr) {
-    params <- c("-f",
-                ca_dist_fname,
-                "-p",
-                pd$caPCA[[pca_label]]$projn,
-                "-c",
-                pd$caPCA[[pca_label]]$covn,
-                "-v",
-                pd$caPCA[[pca_label]]$vecn,
-                "-l",
-                pd$caPCA[[pca_label]]$valn,
-                "-s",
-                pd$caPCA[[pca_label]]$statsn,
-                "-N")
-  } else {
-    params <- c("-f",
-                ca_dist_fname,
-                "-p",
-                pd$caPCA[[pca_label]]$proj,
-                "-c",
-                pd$caPCA[[pca_label]]$cov,
-                "-v",
-                pd$caPCA[[pca_label]]$vec,
-                "-l",
-                pd$caPCA[[pca_label]]$val,
-                "-s",
-                pd$caPCA[[pca_label]]$stats)
-  }
-  # run PCA
-  system2(fastpca.binary, args=params)
+run.caPCA <- function(caDists, residue.mindist=4, residue.maxdist=NULL, corr=FALSE, ignoreCache=FALSE) {
 
-  .update()
+  results <- c("proj", "vec", "val", "cov", "stats")
+  if (corr) {
+    results <- paste(results, "n", sep="")
+  }
+  results <- paste(caDists, results, sep=".")
+
+  # results already computed?
+  outputFilesExist <- all(file.exists(results))
+
+  if (!ignoreCache | outputFilesExist) {
+    warning(msg("caching", "run.caPCA"))
+
+  } else {
+    params <- c("-f", "-p", "-v", "-l", "-c", "-s")
+    params <- c(rbind(params, c(caDists, results)))
+    if (corr) {
+      params <- c(params, "-N")
+    }
+    # run PCA
+    message("Running 'fastpca'..")
+    run.cmd(get.binary("fastpca"), args=params)
+    message(".. done.")
+  }
+
 }
 
 #' Generate reaction coordinates.
@@ -436,21 +410,24 @@ generate.reactionCoordinates <- function(coords, columns, output, ignoreCache=FA
   }
 }
 
-#' filter a data set
+#' Filter a data set
 #'
-#' @param coords Filename of coordinates (ASCII data)
-#' @param filter Some integer N. If 'states' is NULL (default),
-#'               every N-th frame will be selected.
-#'               If 'states' points to file, N is selected state.
-#' @param states Name of state trajectory. default: NULL, i.e. not used.
-#' @param output Filename of output. Default: NULL,
-#'               i.e. construct a name from input parameters.
-#' @param ignoreCache Recompute even if results already exist.
+#' Filter a dataset either by selecting every \eqn{N}-th frame or by selecting
+#' all frames corresponding to state \eqn{N}.
+#'
+#' @param coords Character, name of the coordinates file.
+#' @param filter Numeric, some integer \eqn{N}.
+#'  If \code{states} is \code{NULL} (default), every \eqn{N}-th frame will be selected.
+#'  If \code{states} is a filename, N is selected state.
+#' @param states Character, name of state trajectory file
+#'  (default: \code{NULL}, i.e. not used)
+#' @param output Character, name of the ouput file.
+#'  If \code{NULL} (default) name is constructed from the input parameters.
+#' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
+#'  already exists (default: \code{FALSE}).
 #' @export
 generate.filteredCoordinates <- function(coords, filter, states=NULL, output=NULL, ignoreCache=FALSE) {
-  if ( ! file.exists(coords)) {
-    coords <- get.fullPath(coords)
-  }
+
   if (is.null(states)) {
     if (is.null(output)) {
       output <- paste(coords, ".every", filter, sep="")
@@ -478,8 +455,12 @@ generate.filteredCoordinates <- function(coords, filter, states=NULL, output=NUL
                  filter,
                  sep="")
   }
-  if ( ( ! file.exists(output)) | ignoreCache) {
-    # run filter function
-    system(cmd)
+
+  if (!ignoreCache && file.exists(output)) {
+    warning(msg("caching", arg="generate.filteredCoordinates"))
+  } else {
+    run.cmds(cmd)
   }
 }
+
+
