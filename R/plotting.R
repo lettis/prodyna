@@ -75,11 +75,8 @@ plt.ramachandran <- function(resno, dihedrals, dihedralsInfo=NULL, reslabel=NULL
 #' @param zlim Numeric vector, minimum and maximum value for color scale.
 #'   If \code{NULL} (default) limits are given by the min/max values of the matrix.
 #' @import ggplot2
-#' @importFrom plotly ggplotly
-#' @importFrom plotly config
-#' @importFrom plotly layout
+#' @importFrom plotly ggplotly config layout
 #' @importFrom magrittr "%>%"
-#' @return ggplot object
 #' @export
 plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   if (is.character(x)) {
@@ -131,8 +128,7 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
 #'   \code{FALSE}).
 #' @import ggplot2
 #' @importFrom data.table fread
-#' @importFrom GGally ggpairs
-#' @importFrom GGally putPlot
+#' @importFrom GGally ggpairs putPlot
 #' @export
 plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
   if (corr) {
