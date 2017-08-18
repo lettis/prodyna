@@ -95,7 +95,7 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 
   message("Running GMX to generate dihedrals.")
 
-  run.cmd("gmx",
+  run.cmd(get.binary("gmx"),
           args = c("angle",
                    " -f ",
                    traj,
@@ -180,7 +180,7 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
     }
     params <- c(params, additionalParams)
     message("Running 'fastpca'..")
-    run.cmd("fastpca", args=params)
+    run.cmd(get.binary("fastpca"), args=params)
     message(".. done.")
   } else {
     warning(msg("caching", "run.PCA"))

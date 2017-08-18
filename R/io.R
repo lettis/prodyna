@@ -93,10 +93,8 @@ write.dihedrals.info <- function(ref, traj, nRes, skipCA, fname=NULL) {
               paste("trajectory", traj),
               paste("nResiduals", nRes),
               paste("skippedResiduals", paste(skipCA, collapse=" ")),
-              sep = "\n"
-  ),
-  file = fname_dihedrals_info
-  )
+              sep = "\n"),
+        file = fname_dihedrals_info)
 }
 
 #' Read cumulative fluctuations.

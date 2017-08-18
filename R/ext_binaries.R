@@ -50,7 +50,7 @@ list.binaries <- function() {
 #' Wrapper for \code{\link{system2}} that stops the execution and throws an
 #' error if the command gives a non-zero exit status.
 #'
-#' @param cmd Character, name of binary to run.
+#' @param cmd Character, command to run.
 #' @param args Character vector, arguments to the command.
 #' @param onError Function, function to be performed in case of an error.
 run.cmd <- function(cmd, args, onError=NULL) {
@@ -58,11 +58,11 @@ run.cmd <- function(cmd, args, onError=NULL) {
     if (!is.null(onError)) {
       onError()
     }
-    stop(msg("noExec", paste(get.binary(cmd), paste(args, collapse =" "))),
+    stop(msg("noExec", paste(cmd, paste(args, collapse =" "))),
          call. = F)
   }
   tryCatch(
-    system2(get.binary(cmd), args, stdout = TRUE, stderr = TRUE),
+    system2(cmd, args, stdout = TRUE, stderr = TRUE),
     error   = errorAction,
     warning = errorAction
   )
