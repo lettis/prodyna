@@ -245,29 +245,20 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, diverge=FALSE) {
 #' Plot cumulative fluctuations.
 #'
 #' Takes all available PCAs and plots their cumulative fluctuations in a single plot.
+#' @param cfs_filenames Character vector, names of .val/.valn files
+#' @param cfs_labels Character vector, PCA method descriptions corresponding to the
+#'  files given by \code{cfs_filenames}.
+#' @import ggplot2
 #' @export
-plt.cumFlucts <- function() {
-  suppressMessages(require(ggplot2))
-  .check.projectPath()
-  pd <- projectInfo()
+plt.cumFlucts <- function(cfs_filenames, cfs_labels) {
 
-  #TODO different caPCAs!!!
-
-  # check different kinds of PCA for results
-  cfs_labels <- c("dPCA+",
-                  "dPCA+ (corr)",
-                  "caPCA",
-                  "caPCA (corr)")
-  cfs_filenames <- c(get.fullPath(pd$dPCAplus$val),
-                     get.fullPath(pd$dPCAplus$valn),
-                     get.fullPath(pd$caPCA$val),
-                     get.fullPath(pd$caPCA$valn))
   max_length <- 0
   cfs <- list()
   cfs_labels_selected <- list()
   for (i in 1:length(cfs_labels)) {
     f <- cfs_filenames[i]
-    if (file.exists(f) & !dir.exists(f)) {
+
+    if (file.exists(f) && !dir.exists(f)) {
       cf <- data.table::fread(f, verbose=FALSE, showProgress=FALSE)$V1
       cf <- cumsum(cf/sum(cf))
       max_length <- max(max_length, length(cf))
@@ -279,6 +270,7 @@ plt.cumFlucts <- function() {
     cfs[[i]] <- cfs[[i]][1:max_length,]
   }
   df <- do.call("rbind", cfs)
+
   # plot result
   ggplot(df) +
     geom_line(aes(x=PC, y=cumfluct, color=method),
