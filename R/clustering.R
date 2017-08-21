@@ -286,25 +286,23 @@ clustering.microstates.renamed <- function(microstates, output=NULL) {
   microstates_renamed
 }
 
+#' Compute populations.
 #'
-#' Return data frame with population per frame
-#' @param rc Either the clustered reaction coordinates or a path to the pop files
-#' @param radii Selection of radii. If NULL (default), get all available
+#' TODO description.
+#'
+#' @param rc Character, path to pop files.
+#' @param radii Numeric vector, selection of radii. If \code{NULL} (default), get all available
+#' @return data frame with population per frame.
 #' @export
-clustering.get.pops <- function(rc, radii=NULL) {
-  if (dir.exists(rc)) {
-    rc_dir <- rc
-  } else {
-    rc_dir <- get.fullPath(paste(rc, "clustering", sep="."))
-  }
+clustering.get.pops <- function(dir, radii=NULL) {
+
   if (is.null(radii)) {
-    popfiles <- list.files(rc_dir,
+    popfiles <- list.files(dir,
                            pattern="pop_*",
                            full.names=TRUE)
   } else {
     popfiles <- sapply(radii, function(r) {
-      get.fullPath(c(rc_dir,
-                     paste("pop_", sprintf("%0.6f", r), sep="")))
+      list.files(dir,  paste("pop_", sprintf("%0.6f", r), sep=""))
     })
   }
   do.call(data.frame,
