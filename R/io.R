@@ -94,27 +94,24 @@ write.dihedrals.info <- function(ref, traj, nRes, skipCA, fname=NULL) {
               paste("nResiduals", nRes),
               paste("skippedResiduals", paste(skipCA, collapse=" ")),
               sep = "\n"),
-        file = fname_dihedrals_info)
+        file = fname)
 }
 
-#' Read cumulative fluctuations.
+#' Cumulative fluctuations.
 #'
-#' Read cumulative fluctuations for the given PCA procedure.
+#' TODO: description
 #'
-#' @param pca Selected PCA-procedure
-#' @param corr Use correlation-based PCA
+#' @param vals Character or numeric vector, either name of the .val/.valn file
+#'  or vector of eigenvalues.
 #' @return cumulative fluctuations
 #' @export
-read.cumFlucts <- function(pca, corr=FALSE) {
+read.cumFlucts <- function(vals) {
 
-  if (corr) {
-    vals <- data.table::fread(pca$valn)
-  } else {
-    vals <- data.table::fread(pca$val)
+  if (is.character(vals)) {
+    vals <- data.table::fread(vals)
+    vals <- vals$V1
   }
-  vals <- vals$V1
-
-  cumsum(vals/max(vals))
+  return(cumsum(vals/max(vals)))
 }
 
 
