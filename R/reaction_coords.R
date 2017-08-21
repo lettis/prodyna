@@ -3,7 +3,7 @@
 #'
 #' Dihedral angles for the given trajectory are computed using gmx.
 #' The result is saved to <traj>.dih. A file <traj>.dih.info is generated
-#' containing additional information.
+#' containing additional information (see \code{\link{write.dihedrals.info}}).
 #'
 #' If \code{ignoreCache} is set to \code{FALSE}, both output files already exist
 #' and the skipped residuals in the .dih.info match \code{skipCA}, no
@@ -91,7 +91,8 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
   onError <- function() {unlink(c(fname_dihedrals,
                                   fname_dihedrals_info,
                                   fname_xvg,
-                                  tmp_ndx))}
+                                  tmp_ndx,
+                                  "angdist.xvg"))}
 
   message("Running GMX to generate dihedrals.")
 
@@ -186,7 +187,11 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
     }
     params <- c(params, additionalParams)
     message("Running 'fastpca'..")
-    run.cmd(get.binary("fastpca"), args=params)
+
+    run.cmd(get.binary("fastpca"),
+            args    = params,
+            onError = function(){unlink(results)})
+
     message(".. done.")
   }
 }
@@ -247,7 +252,7 @@ generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=N
                                  pair <- NULL
                                  if (res1 < res2) {
                                    d_res <- res2-res1
-                                   if (residue.mindist <= d_res & d_res <= residue.maxdist) {
+                                   if (residue.mindist <= d_res && d_res <= residue.maxdist) {
                                      pair <- c(ca_comb[1,i], ca_comb[2,i])
                                    }
                                  }
@@ -269,6 +274,10 @@ generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=N
             file=fname_ndx,
             append=TRUE)
     }
+
+    onError <- function() {unlink(c(fname_ndx,
+                                    fname_ca_dists,
+                                    "dist.xvg"))}
     # compute distances with gromacs
     run.cmd(get.binary("gmx"), c("distance",
                                  "-f",
@@ -277,16 +286,20 @@ generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=N
                                  fname_ndx,
                                  "-oall",
                                  "-select",
-                                 seq(0, (nrow(ca_pairs)-1))))
+                                 seq(0, (nrow(ca_pairs)-1))),
+            onError=onError)
+
     # reformat data
     run.cmds(paste("grep -v \"#\" dist.xvg | grep -v \"@\" ",
                  "| ",
-                 awk.binary,
+                 get.binary("awk"),
                  " '{for(i=2; i <=NF; ++i)",
                  "{printf(\" %s\", $i)} printf(\"\\n\")}'",
                  " > ",
                  fname_ca_dists,
-                 sep=""))
+                 sep=""),
+             onError=onError)
+
     # remove intermediate file
     unlink("dist.xvg")
   }
