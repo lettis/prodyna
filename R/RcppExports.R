@@ -9,7 +9,7 @@
 #' @param x The input data.
 #' @param tau_max The max correlation lag.
 circacf <- function(x, tau_max) {
-    .Call('prodyna_circacf', PACKAGE = 'prodyna', x, tau_max)
+    .Call('_prodyna_circacf', PACKAGE = 'prodyna', x, tau_max)
 }
 
 #' Compute ACF using OpenMP
@@ -18,7 +18,7 @@ circacf <- function(x, tau_max) {
 #' @param x The input data.
 #' @param tau_max The max correlation lag.
 fastacf <- function(x, tau_max) {
-    .Call('prodyna_fastacf', PACKAGE = 'prodyna', x, tau_max)
+    .Call('_prodyna_fastacf', PACKAGE = 'prodyna', x, tau_max)
 }
 
 #' Compute RGB color code from sampling of Ramachandran plot
@@ -27,7 +27,7 @@ fastacf <- function(x, tau_max) {
 #' @param phis Sampling of phi values.
 #' @param psis Sampling of psi values.
 rama2rgb <- function(phis, psis) {
-    .Call('prodyna_rama2rgb', PACKAGE = 'prodyna', phis, psis)
+    .Call('_prodyna_rama2rgb', PACKAGE = 'prodyna', phis, psis)
 }
 
 #' computes a cos/sin transform of angles on the fly
@@ -36,6 +36,6 @@ rama2rgb <- function(phis, psis) {
 #' @param fname_out Output filename with cos/sin transformed values.
 #' @param is_deg Angles are expressed in degrees. default: true.
 streamed_cossin_transform <- function(fname_in, fname_out, is_deg = TRUE) {
-    invisible(.Call('prodyna_streamed_cossin_transform', PACKAGE = 'prodyna', fname_in, fname_out, is_deg))
+    invisible(.Call('_prodyna_streamed_cossin_transform', PACKAGE = 'prodyna', fname_in, fname_out, is_deg))
 }
 

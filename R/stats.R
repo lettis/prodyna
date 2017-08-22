@@ -1,12 +1,19 @@
 
 
-#' compute autocorrelations
-#' @param x The data. Either a filename or a data frame with values.
-#' @param lag.max The maximal correlation lag. If < 1, expressed in fractions of total length.
-#' @param type One of c("correlation", "covariance")
-#' @param columns The selected observables for which the autocorrelation should be computed. If NULL: compute all.
-#' @param circular Compute autocorrelation for circular variables (e.g. dihedral angles).
-#' @param circ.units Circular units, one of c("deg", "rad")
+#' Compute autocorrelations.
+#'
+#' TODO: description
+#'
+#' @param x Character or data.frame, either a filename or a data frame
+#'  providing the data.
+#' @param lag.max Numeric, maximal correlation lag.
+#'  If < 1, expressed in fractions of total length (default: 0.25).
+#' @param type Character, one of \code{c("correlation", "covariance")}. NOT USED
+#' @param columns Numeric vector, selected observables for which the
+#'  autocorrelation should be computed. If \code{NULL} compute all.
+#' @param circular Logical, should autocorrelation be computed for circular
+#'  variables, e.g. dihedral angles? (default: \code{FALSE})
+#' @param circ.units Character, circular units, one of \code{c("deg", "rad")}
 #' @export
 stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, circular=FALSE, circ.units="deg") {
   # prepare data import
