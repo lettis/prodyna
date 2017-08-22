@@ -220,7 +220,7 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, corr=FALSE, diverge=FALSE) {
     proj <- proj %>% select(dim1, dim2)
   } else {
     if (is.list(pca)) {
-      .check.projectPath()
+      #.check.projectPath()
       if (corr) {
         .check.filesExist(c(pca$projn, pca$vecn))
         proj <- file_read(pca$projn)
