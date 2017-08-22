@@ -109,7 +109,7 @@ clustering.compute.neighborhood <- function(rc, radius, dir=NULL) {
 #'
 #' TODO: description
 #'
-#' @param rc Character, name of the teaction coordinates file.
+#' @param rc Character, name of the reaction coordinates file.
 #' @param radius Numeric, radius for density estimation.
 #' @param dir Character, name of the output directory. If \code{NULL} the
 #'  output directory is assumed to be <rc>.clustering.
@@ -290,12 +290,16 @@ clustering.microstates.renamed <- function(microstates, output=NULL) {
 #'
 #' TODO description.
 #'
-#' @param rc Character, path to pop files.
-#' @param radii Numeric vector, selection of radii. If \code{NULL} (default), get all available
+#' @param dir Character, path to population files.
+#' @param radii Numeric vector, selection of radii. If \code{NULL} (default),
+#' read all available population files.
 #' @return data frame with population per frame.
 #' @export
 clustering.get.pops <- function(dir, radii=NULL) {
 
+  if (substr(dir, nchar(dir), nchar(dir)) != "/") {
+    dir <- paste(dir, "/", sep="")
+  }
   if (is.null(radii)) {
     popfiles <- list.files(dir,
                            pattern="pop_*",
