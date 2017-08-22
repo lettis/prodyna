@@ -1,4 +1,5 @@
 
+-
 -------------------------------------------------------------------------------
 reaction_coords.R
 -------------------------------------------------------------------------------
@@ -52,6 +53,7 @@ TODO:
 - description sections
 - min, max, step for clustering.screening, clustering.densityNetwork
 - clustering.microstates: more descritpive name for output file?
+- all clustering methods assume standard naming
 
 -------------------------------------------------------------------------------
 msm.R
