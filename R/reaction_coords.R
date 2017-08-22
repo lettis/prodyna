@@ -231,7 +231,6 @@ generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=N
   pdb <- bio3d::read.pdb(ref)
   calpha_ndx <- pdb$atom$eleno[pdb$atom$elety == "CA"]
   n_res <- length(calpha_ndx)
-  res_ndx <- 1:n_res
 
   if (is.null(residue.maxdist)) {
     residue.maxdist <- n_res
@@ -243,21 +242,25 @@ generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=N
     warning(msg("caching", "generate.caDistances"))
 
   } else {
-    ca_comb  <- combn(calpha_ndx, 2)
-    ca_pairs <- do.call("rbind",
-                        Filter(Negate(is.null),
-                               lapply(1:ncol(ca_comb), function(i) {
-                                 res1 <- res_ndx[calpha_ndx == ca_comb[1,i]]
-                                 res2 <- res_ndx[calpha_ndx == ca_comb[2,i]]
-                                 pair <- NULL
-                                 if (res1 < res2) {
-                                   d_res <- res2-res1
-                                   if (residue.mindist <= d_res && d_res <= residue.maxdist) {
-                                     pair <- c(ca_comb[1,i], ca_comb[2,i])
-                                   }
-                                 }
-                                 pair
-                               })))
+    # filter all index pairs (i,j), i, j in {1,.., n_res} with i < j
+    filter <- function(d_res) {residue.mindist <= d_res && d_res <= residue.maxdist}
+
+    ca_pairs <- Reduce(
+                 function(l1, i) {
+                   l2 <-Reduce(function(l,j) {
+                                 d_res <- j-i
+                                 if (filter(d_res)) {
+                                   return(c(l, list(c(calpha_ndx[i], calpha_ndx[j]))))
+                                 } else {
+                                   return(l)}
+                                  },
+                               x    = (i+1):n_res,
+                               init = list())
+                   return(c(l1, l2))},
+                 x    = 1:(n_res-1),
+                 init = list())
+
+    ca_pairs <- do.call("rbind", ca_pairs)
 
     fname_ndx <- paste(fname_ca_dists, ".ndx", sep="")
 
