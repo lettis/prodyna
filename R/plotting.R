@@ -132,74 +132,52 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
 #' @export
 plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
   if (corr) {
-    proj <- fread(sprintf("%s.projn", fname),
-                  select=pcs,
-                  verbose=FALSE,
-                  showProgress=FALSE)
-    vecs <- fread(sprintf("%s.vecn", fname),
-                  select=pcs,
-                  verbose=FALSE,
-                  showProgress=FALSE)
+    fname_proj <- sprintf("%s.projn", fname)
+    fname_vecs <- sprintf("%s.vecn", fname)
   } else {
-    proj <- fread(sprintf("%s.proj", fname),
-                  select=pcs,
-                  verbose=FALSE,
-                  showProgress=FALSE)
-    vecs <- fread(sprintf("%s.vec", fname),
-                  select=pcs,
-                  verbose=FALSE,
-                  showProgress=FALSE)
+    fname_proj <- sprintf("%s.proj", fname)
+    fname_vecs <- sprintf("%s.vec", fname)
   }
+
+  proj <- fread(fname_proj, select=pcs, verbose=FALSE, showProgress=FALSE)
+  vecs <- fread(fname_vecs, select=pcs, verbose=FALSE, showProgress=FALSE)
+
   vec_names <- names(vecs)
-  n_dih <- dim(vecs)[1]
+  n_dih     <- dim(vecs)[1]
   vecs <- do.call("rbind",
                   lapply(vec_names, function(n) {
                     data.frame(dih=vecs[[n]], v=n, ndx=1:n_dih)
                   }))
-  plt <- ggpairs(proj,
-                 lower="blank",
-                 upper="blank")
+  plt <- ggpairs(proj, lower="blank", upper="blank")
   seq <- 1:ncol(proj)
+
   for (x in seq){
     for (y in seq) {
-      if (x == y) {
-        # diag
-        plt <- putPlot(plt,
-                       ggplot(proj,
-                              aes_string(x=names(proj)[x])) +
-                         stat_bin(bins=200,
-                                  aes(y=-log(..density..)),
-                                  geom="line",
-                                  position="identity"),
-                       x,
-                       x)
-      }
+
       if (x < y) {
         # lower
-        plt <- putPlot(plt,
-                       ggplot(proj,
-                              aes_string(x=names(proj)[x],
-                                         y=names(proj)[y])) +
-                         stat_bin2d(bins=200) +
-                         scale_fill_distiller(palette="YlGnBu",
-                                              trans=.reverselog_trans()),
-                       y,
-                       x)
+        subplt <- ggplot(proj, aes_string(x=names(proj)[x],
+                                          y=names(proj)[y])) +
+                  stat_bin2d(bins=200) +
+                  scale_fill_distiller(palette="YlGnBu",
+                                       trans=.reverselog_trans())
       } else if (y < x) {
         # upper
-        plt <- putPlot(plt,
-                       ggplot(vecs[vecs$v==vec_names[x] | vecs$v==vec_names[y],],
-                              aes(x=ndx,
-                                  y=abs(dih),
-                                  group=v,
-                                  color=v)) +
-                         geom_line(size=2),
-                       y,
-                       x)
+        subplt <- ggplot(vecs[vecs$v==vec_names[x] | vecs$v==vec_names[y],],
+                      aes(x=ndx, y=abs(dih), group=v, color=v)) +
+                  geom_line(size=2)
+      } else {
+        # diag
+        subplt <- ggplot(proj, aes_string(x=names(proj)[x])) +
+                  stat_bin(bins=200,
+                           aes(y=-log(..density..)),
+                           geom="line",
+                           position="identity")
       }
+    plt <- putPlot(plt, subplt, y, x)
     }
   }
-  plt
+  return(plt)
 }
 
 #' Plot a 2d-projection for a given PCA.
@@ -463,19 +441,20 @@ plt.stateTrajComparison <- function(traj1, traj2) {
 
 #' Plot per-frame populations for given radii.
 #'
-#' @param rc Either the reaction coordinates used for clustering or
-#'           a path to the pop files.
-#' @param radii Radii selection. If NULL (default), plot all available.
+#' @param dir Character, path to population files.
+#' @param radii Numeric vector, selection of radii. If \code{NULL} (default),
+#' read all available population files.
 #' @param logy Plot with logarithmic y-scale.
 #' @import ggplot2
 #' @importFrom reshape2 melt
 #' @export
-plt.pops <- function(rc, radii=NULL, logy=TRUE) {
+plt.pops <- function(dir, radii=NULL, logy=TRUE) {
 
   #TODO find plotting method with higher performance
   #     (not geom_point, perhaps 1d hist with bins=1% of n data points)
 
-  pops <- clustering.get.pops(rc, radii)
+  pops <- clustering.get.pops(dir, radii)
+
   for(i in colnames(pops)) {
     pops[[i]] <- sort(pops[[i]], decreasing=TRUE)
   }
