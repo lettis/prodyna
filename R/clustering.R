@@ -41,10 +41,12 @@ clustering.prepareOutputDir <- function(rc, dir) {
 
 #' Radii estimation for density-based clustering.
 #'
-#' TODO: description
+#' Compute neighbourhood populations and free energies for different radii.
+#' The results are written to pop_<radius> and fe_<radius>, respectively.
 #'
 #' @param rc Character, name of the reaction coordinates file.
-#' @param radii Numeric vector, radii to test.
+#' @param radii Numeric vector, radii. The radius defines the size of the
+#'  neighbourhood that should be considered.
 #' @param dir Character, name of the output directory. If \code{NULL} the
 #'  output directory is assumed to be <rc>.clustering.
 #'  The ouput directory is created if it does not exist already.
@@ -107,7 +109,10 @@ clustering.compute.neighborhood <- function(rc, radius, dir=NULL) {
 
 #' Screening (density-based geometric clustering).
 #'
-#' TODO: description
+#' Iterative clustering of frames below a specific free energy level.
+#' The resulting state assignments are written to clust.<energyCutOff>
+#' where a state assignment of 0 indicates a frame with free energy larger
+#' than the cut-off value.
 #'
 #' @param rc Character, name of the reaction coordinates file.
 #' @param radius Numeric, radius for density estimation.
@@ -147,7 +152,13 @@ clustering.screening <- function(rc, radius, dir=NULL, min=NULL, max=NULL, step=
 
 #' Construct density network from landscape screening.
 #'
-#' TODO: description
+#' Output files are
+#' \itemize{
+#' \item remapped_clust_<energyCutoff>
+#' \item network_nodes.dat, network_links.datm, network_leaves.dat
+#' \item network_end_node_traj.dat
+#' \item network_visualization.html
+#' }
 #'
 #' @param rc Character, name of the reaction coordinates file.
 #' @param minpop Numeric, minimum population to count microstate as node.
@@ -182,7 +193,9 @@ clustering.densityNetwork <- function(rc, minpop, dir=NULL, min=NULL, max=NULL, 
 
 #' Compute Microstate trajectory.
 #'
-#' TODO: description
+#' Assign frames to a distinct microstate using the tree structure obtained by
+#' \code{\link{clustering.densityNetwork}}.
+#' The resulting assignment is written to <output>.
 #'
 #' @param rc Character, name of reaction coordinates file.
 #' @param radius Numeric, density estimation radius.
@@ -286,7 +299,7 @@ clustering.microstates.renamed <- function(microstates, output=NULL) {
   microstates_renamed
 }
 
-#' Compute populations.
+#' Read population files.
 #'
 #' TODO description.
 #'
