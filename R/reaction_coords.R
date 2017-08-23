@@ -32,7 +32,7 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
       file.exists(fname_dihedrals_info)) {
 
     dihInfo <- read.dihedrals.info(fname_dihedrals_info)
-    nRes <- dihInfo$nRes
+    nRes    <- dihInfo$nRes
     skipped <- dihInfo$skippedResnos
 
     # check if the same residuals should be skipped
@@ -59,9 +59,11 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 
   nRes <- length(calpha_indices)
 
-  # default: remove first and last C_alpha
+
   if (is.null(skipCA)) {
-    skipCA <- c(1, nRes)
+    skipCA <- c(1, nRes)                 # default: remove first and last C_alpha
+  } else {
+    skipCA <- skipCA[skipCA <= nRes]     # remove out of bound indices
   }
 
   # remove skipCA indices
