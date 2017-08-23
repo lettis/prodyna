@@ -1,0 +1,124 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library("prodyna")
+setwd("/home/kb285/tutorial")
+```
+
+
+## Dihedral angles
+
+Being a typical ‘folder’, i.e. a protein that constantly folds and unfolds, HP-35 is best described by the backbone dihedral angles, which encode the secondary structure. For a first assessment of the data, we will construct the dihedral angles with
+
+```{r}
+
+generate.dihedrals(ref  ="data/HP35_NLE.pdb", 
+                   traj ="data/HP35_every100.xtc", 
+                   skipCA = c(1,34,35,36),
+                   ignoreCache =T)
+
+dih <- read.dihedrals("data/HP35_every100.xtc.dih", resnos=c(2,3))
+str(dih)
+
+dihInfo <- read.dihedrals.info("data/HP35_every100.xtc.dih.info")
+str(dihInfo)
+```
+
+
+and review the Ramachandran plots of all residues (with complete dihedral angle pairs) by
+
+```{r}
+r <- c(2,3)
+for (res_id in r) {
+  show(plt.ramachandran(res_id, dihedrals="data/HP35_every100.xtc.dih"))
+}
+
+```
+
+## dPCA
+
+To reduce the dimensionality of the data set, we run a dPCA+ on the freshly generated dihedrals with
+
+```{r}
+prodyna::set.binary("fastpca", "/usr/local/bin/fastpca")
+prodyna::run.dPCAplus("data/HP35_every100.xtc.dih", ignoreCache=T)
+
+```
+
+Since prodyna uses the fastpca-binary, which is not installed in a standard path, we need to make it aware of its existence. Adapt this to your needs.
+
+To check on the results, we plot on overview for the first ten principal components (PCs). This shows in the lower triangle the 2D projections of the PC pairs, their 1D projections on the diagonal, and the eigenvector contributions in the upper triangle.
+
+```{r}
+prodyna::plt.pcaOverview("data/HP35_every100.xtc.dih", pcs=1:10)
+prodyna::plt.pcaProj("data/HP35_every100.xtc.dih.proj", dim1=1, dim2=2)
+```
+
+The projections suggest, that PCs higher than seven do not really show structure and probably encode thermal fluctuations only. Furthermore, PC six does not seem to be very interesting. Therefore, we perform dimensionality reduction by selecting PCs 1-5 and 7 as reaction coordinates.
+
+```{r}
+generate.reactionCoordinates(coords="data/HP35_every100.xtc.dih.proj",
+                             columns=c(1:4),
+                             output="data/HP35_every100.xtc.dih.proj.1-4",
+                             ignoreCache = T)
+```
+
+## Finding metastable states
+
+To identify metastable states, i.e. structures that are low in free energy and thus often sampled, we perform density-based geometric clustering on the reduced coordinate set. First, we need to find a suitable radius for the density estimation:
+
+```{r}
+set.binary("clustering", "/usr/local/bin/clustering")
+cls_dir <- "data/HP35_every100.xtc.dih.proj.1-4.clustering"
+
+clustering.estimate.radii(rc="data/HP35_every100.xtc.dih.proj.1-4",
+                          radii=c(0.05, 0.10, 0.15, 0.20))
+
+pops <- clustering.get.pops(cls_dir, radii=NULL)
+str(pops)
+plt.pops(dir=cls_dir, radii=NULL, logy=TRUE)
+
+```
+```{r}
+clustering.compute.neighborhood(rc="data/HP35_every100.xtc.dih.proj.1-4", radius=0.15)
+clustering.screening(rc="data/HP35_every100.xtc.dih.proj.1-4", radius=0.15)
+clustering.densityNetwork(rc="data/HP35_every100.xtc.dih.proj.1-4", minpop=100)
+
+```
+
+```{r}
+clustering.microstates(rc="data/HP35_every100.xtc.dih.proj.1-4", radius=0.15)
+plt.ramacolor(statetraj = paste(cls_dir, "microstates", sep="/"),
+              dihedrals = "data/HP35_every100.xtc.dih.proj.1-4")
+
+```
+
+```{r}
+T <- msm.transitionMatrix(traj=paste(cls_dir, "microstates", sep="/"),
+                          lag=1)
+traj1 <- msm.sim(T, 1, 100)
+traj2 <- msm.sim(T, 1, 100)
+
+plt.stateTrajComparison(traj1, traj2)
+
+```
+
+
+
+## $C_\alpha$ distances
+
+```{r}
+
+generate.caDistances(ref="data/HP35_NLE.pdb", 
+                     traj="data/HP35_every100.xtc",
+                     residue.mindist=4, 
+                     residue.maxdist=NULL, 
+                     ignoreCache=T) 
+
+run.PCA(coords="data/HP35_every100.xtc.caDist.10.35", corr=F, ignoreCache=T)
+
+```
+
