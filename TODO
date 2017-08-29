@@ -1,10 +1,136 @@
 
-- all generator functions (e.g. in 'reaction_coords.R') should
-  update the project object and return it, essentially by returning
-  project()
+-------------------------------------------------------------------------------
+reaction_coords.R
+-------------------------------------------------------------------------------
 
-- plotting of pops, etc should be in 'plotting.R', under
-  'plt.[...]', not in 'clustering'.
+generate.dihedrals
+- write .dih.info file storing skipped Ca indices
+- compare skipped Ca indices before caching
+- delete all intermediate/output files in case of an error
+- TODO: intermediate files are created in working directory, not in output dir
 
-- plotting of pops must get more performant, e.g. by using
+generate.cossinTransform
+
+run.PCA
+- delete output files in case of an error
+
+run.dPCAplus
+
+generate.caDistances
+
+run.caPCA
+- same as run.PCA, should be deleted
+
+generate.reactionCoordinates
+generate.filteredCoordinates
+
+-------------------------------------------------------------------------------
+io.R
+-------------------------------------------------------------------------------
+
+read.dihedrals
+read.dihedrals.info
+write.dihedrals.info
+
+read.cumFlucts
+
+-------------------------------------------------------------------------------
+clustering.R
+-------------------------------------------------------------------------------
+
+clustering.prepareOutputDir
+
+clustering.estimate.radii
+clustering.compute.neighborhood
+clustering.screening
+clustering.densityNetwork
+clustering.microstates
+clustering.microstates.renamed
+clustering.get.pops
+
+TODO:
+- description sections
+- min, max, step for clustering.screening, clustering.densityNetwork
+- clustering.microstates: more descritpive name for output file?
+
+-------------------------------------------------------------------------------
+msm.R
+-------------------------------------------------------------------------------
+
+msm.countMatrix
+
+msm.transitionMatrix
+- TODO: param enforce.db Enforce detailed balance by averaging over forward and
+        backward rates.
+
+msm.transitionTimes
+msm.sim
+msm.mfpt
+
+-------------------------------------------------------------------------------
+plotting.R
+-------------------------------------------------------------------------------
+
+.reverselog_trans
+plt.ramachandran
+plt.matrix
+plt.pcaOverview
+plt.pcaProj
+
+plt.cumFlucts
+
+plt.autocor
+plt.ramacolor
+
+plt.stateTrajComparison
+plt.pops
+plt.mppNetwork
+
+TODO: plotting of pops must get more performant, e.g. by using
   histograms with number of bins say 10% of nrow(data).
+
+-------------------------------------------------------------------------------
+ext_binaries.R
+-------------------------------------------------------------------------------
+
+set.binary
+get.binary
+list.binaries
+
+run.cmd
+run.cmds
+
+-------------------------------------------------------------------------------
+stats.R
+-------------------------------------------------------------------------------
+
+stats.autocor
+
+- incorrectly(?) assumes header in coordinates file
+- type argument not used
+
+-------------------------------------------------------------------------------
+vmd_interface.R
+-------------------------------------------------------------------------------
+
+vmd.run
+vmd.exec
+vmd.quit
+vmd.setStyle
+vmd.renderPostscript
+
+-------------------------------------------------------------------------------
+RcppExports.R
+-------------------------------------------------------------------------------
+
+circacf
+fastacf
+rama2rgb
+streamed_cossin_transform
+
+-------------------------------------------------------------------------------
+project_managment.R
+-------------------------------------------------------------------------------
+
+TODO: keep make.readme
+

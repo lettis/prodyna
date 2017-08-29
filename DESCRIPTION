@@ -25,5 +25,6 @@ Imports:
     reshape2,
     subprocess,
     igraph,
-    circlize
+    circlize, 
+    magrittr
 LinkingTo: Rcpp
