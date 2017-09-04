@@ -188,13 +188,13 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
       params <- c(params, "-N")
     }
     params <- c(params, additionalParams)
-    message("Running 'fastpca'..")
+    message("Running 'fastpca'... ", appendLF=F)
 
     run.cmd(get.binary("fastpca"),
             args    = params,
             onError = function(){unlink(results)})
 
-    message(".. done.")
+    message("done.")
   }
 }
 
@@ -202,6 +202,7 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
 #' dPCA+
 #'
 #' Runs a dPCA+ analysis on dihedral angles.
+#' TODO: detailed description
 #'
 #' @param dihedrals Character, name of .dih file containing dihedral angles.
 #' @param corr Logical, if \code{TRUE} use correlation instead of covariance.
@@ -237,6 +238,7 @@ generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=N
   if (is.null(residue.maxdist)) {
     residue.maxdist <- n_res
   }
+
   # TODO: more descriptive name?
   fname_ca_dists <- paste(traj, "caDist", residue.mindist, residue.maxdist, sep=".")
 
