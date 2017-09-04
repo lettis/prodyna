@@ -42,23 +42,27 @@ plt.ramachandran <- function(resno, dihedrals, dihedralsInfo=NULL, reslabel=NULL
   } else {
     dih <- dihedrals
   }
+
+  if (is.null(reslabel)) {
+    title <- paste("residue", resno)
+  } else {
+    title <- paste("residue", reslabel)
+  }
+
   phi <- dih[[paste("phi", resno, sep="")]]
   psi <- dih[[paste("psi", resno, sep="")]]
 
   p <- ggplot(data.frame(phi, psi)) +
        stat_bin2d(aes(x=phi, y=psi), bins=180) +
-       scale_fill_distiller(palette="YlGnBu",
-                            trans=.reverselog_trans()) +
+       scale_fill_distiller(palette="YlGnBu", trans=.reverselog_trans()) +
        xlim(-180,180) +
        ylim(-180,180) +
        theme_bw() +
-       theme(legend.position = "none")
+       theme(legend.position = "none") +
+       xlab(expression(phi)) +
+       ylab(expression(psi)) +
+       ggtitle(title)
 
-  if (is.null(reslabel)) {
-    p <- p + ggtitle(paste("residue", resno))
-  } else {
-    p <- p + ggtitle(paste("residue", reslabel))
-  }
   return(p)
 }
 
@@ -439,21 +443,20 @@ plt.stateTrajComparison <- function(traj1, traj2) {
 }
 
 
-#' Plot per-frame populations for given radii.
+#' Plot sorted per-frame populations for given radii.
 #'
-#' @param dir Character, path to population files.
+#' @param pops Data frame, neighbourhood populations per frame where each column
+#'  corresponds to a particular neighbourhood radius.
 #' @param radii Numeric vector, selection of radii. If \code{NULL} (default),
 #' read all available population files.
 #' @param logy Plot with logarithmic y-scale.
 #' @import ggplot2
 #' @importFrom reshape2 melt
 #' @export
-plt.pops <- function(dir, radii=NULL, logy=TRUE) {
+plt.populations <- function(pops, radii=NULL, logy=TRUE) {
 
   #TODO find plotting method with higher performance
   #     (not geom_point, perhaps 1d hist with bins=1% of n data points)
-
-  pops <- clustering.get.pops(dir, radii)
 
   for(i in colnames(pops)) {
     pops[[i]] <- sort(pops[[i]], decreasing=TRUE)
@@ -476,11 +479,9 @@ plt.pops <- function(dir, radii=NULL, logy=TRUE) {
 #' @importFrom magrittr "%>%"
 #' @importFrom dplyr mutate count arrange
 #' @importFrom igraph graph plot.igraph
+#'
 #' @export
 plt.mppNetwork <- function(dirname) {
-  require(igraph, quietly=TRUE, warn.conflicts=FALSE)
-  require(dplyr, quietly=TRUE, warn.conflicts=FALSE)
-
   #### get the data
   # helper to get different data files from MPP directory
   get_mpp_data <- function(fname) {
