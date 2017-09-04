@@ -1,0 +1,289 @@
+---
+title: "Prodyna Tutorial"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Prodyna Tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Analysis of Protein Dynamics: The Prodyna Tutorial 
+
+## Introduction
+
+Prodyna is a versatile software package for the analysis of protein dynamics data (typically taken from MD simulations) written for the R environment. The library includes tools for coordinate transformation and selection, dimensionality reduction and clustering. Moreover, several convenience functions exist, e.g. to easily plot comprehensible diagrams or to interact with visualization tools like [VMD](www.ks.uiuc.edu/Research/vmd/).
+
+The R statistical programming environment was chosen as host language because of its universal availability and the plethora of options for advanced statistical analysis and machine learning.
+
+Prodyna is free and open source software, published under the [simplified BSD license] (https://github.com/lettis/prodyna/blob/master/LICENSE).
+
+You can find all source code on [Github](https://github.com/lettis/prodyna).
+
+For performance reasons, prodyna is tightly connected several high-performance tools which are also available as free software, either on https://github.com/lettis/prodyna or from other resources.
+
+## Installation
+
+We assume you have a recent Linux environment. While prodyna and its dependencies may also run other systems (most probably also on MacOS, maybe on windows), the software has not been tested on these. If you are trying to install the software on such a system, do not hesitate to ask us for help. However, we cannot give you any guarantees…
+
+For the rest of the tutorial, we will assume that prodyna and all its third-party dependencies are installed and working.
+
+### Prodyna
+
+Using the R-devtools package, prodyna can easily be installed directly from github. To this end, install devtools via
+
+```{r, eval=FALSE}
+if ( ! ("devtools" %in% installed.packages())) {
+  install.packages("devtools")
+}
+```
+
+Then, install prodyna and its R-dependencies (that might take a while) via
+```{r, eval=FALSE}
+devtools::install_github("lettis/prodyna")
+```
+
+### Third-party packages
+
+As mentioned above, prodyna employs a set of high-performance software packages that need to be installed additionally:
+
+__Gromacs__
+
+For most of the data handling regarding MD data, prodyna uses the [Gromacs software suite](http://www.gromacs.org/). Gromacs can be downloaded from http://www.gromacs.org/Downloads. It is advised to use the most recent version, but at least version 5.X. The downloaded package includes installation instructions, which however are also available on the Gromacs website.
+
+__FastPCA__
+
+FastPCA is a parallelized C++ implementation of standard PCA and dPCA+ (TODO: citation). Its code and installation instructions are available at https://github.com/lettis/FastPCA.
+
+__Clustering__
+
+The clustering packages provides methods for density-based geometric clustering, dynamic clustering, frame filtering and variable dynamic coring. Being written in C++ and CUDA, it is a high-performance package for the efficient clustering of trajectories with millions of frames (as long as one has a decent Nvidia-GPU available). Code and documentation are available at https://github.com/lettis/Clustering.
+
+__VMD__
+
+To visualize protein structures, VMD is one of the best solutions. The software is free for academic use and can be downloaded and installed after registration on the VMD website.
+
+## Available test data
+
+This tutorial comes with a small data set of HP-35 NLE/NLE, subsampled (every 100th frame) from a larger data set thankfully made available by D.E. Shaw research (TODO: cite). HP-35 NLE/NLE is a mutant of the chicken villin headpiece, consists of 35 amino acids and forms three alpha-helices, connected by two short loops. In its native state, HP-35 folds to form a small hydrophobic cavity between the helices.
+
+The data is already adapted to prodyna/Gromacs, with
+
+* the reference structure `HP35.pdb`
+* the binary trajectory data `HP35_every100.xtc`
+* and a Gromacs-specific file to identify protein residues (`residuetypes.dat`)
+
+The data can be downloaded from TODO. For the following examples to work, the files must be stored _in the same directory_ as this tutorial (TODO).
+
+---
+
+You can view the reference structure using VMD:
+```{r, eval=FALSE}
+prodyna::vmd.run()
+```
+
+When VMD has properly started, load the structure file and let VMD depict the protein in the familier cartoon style:
+
+```{r, eval=FALSE}
+prodyna::vmd.loadPdb("HP35.pdb")
+prodyna::vmd.setStyle("NewCartoon")
+```
+
+## Analysis of protein dynamics
+
+The dynamics of proteins are very complicated. A typical protein has hundreds to thousands of amino acids (HP35, the protein used in the test data is a very small example) and thousands to ten thousands of atoms. With the position of each atom distinctly defined by three Cartesian coordinates, a protein structure can be identified as a point in a very high-dimensional space.
+
+However, we are in general interested in the functional motion and thermodynamic properties like energy distributions, etc., which are intricately connected to the protein structure. The high dimensionality of the data makes a direct analysis impossible due to the so-called curse of dimensionality. Therefore, we need to reduce the number of coordinates for analysis. This is either done by constructing physically ‘meaningful’ coordinates, e.g. certain inter-molecular distances, contacts, or angles measuring the torsions of the protein chain, or by applying statistical methods like PCA to project the essential motion of protein onto a view principal components. Usually, one performs a combination of both.
+
+Having defined proper _reaction coordinates_, further analysis methods like clustering are applied to construct metastable states. Then, the dynamics of the protein might be described in a simple state model with certain, memoryless transition probabilities from one state to another (i.e., a Markov chain, hence called _Markov state models_). Every state can be described by its associated molecular structure, level of free energy, equilibrium population, etc.
+
+Currently, the construction of reaction coordinates and state models and the visualization of related observables is the focus of the prodyna functionality - and hence the focus of this tutorial.
+
+## Contacts and distances
+
+TODO. The computation of contacts and distances is not yet implemented in prodyna.
+
+## Dihedral angles
+
+Being a typical _folder_, i.e. a protein that constantly folds and unfolds, HP-35 is best described by the backbone dihedral angles, which encode the secondary structure. For a first assessment of the data, we will construct the dihedral angles with
+
+```{r}
+prodyna::generate.dihedrals(ref  = "HP35_NLE.pdb", 
+                            traj = "HP35_every100.xtc",
+                            skipCA = c(1, 35))
+```
+
+This will produce two files
+* `HP35_every100.xtc.dih` with columns corresponding to $\varphi$ and $\psi$ dihedral angles of residues 2 to 34 (first and last residue is skipped) 
+* `HP35_every100.xtc.dih.info` containing information on the reference and trajetory files, the total number of residues, as well as the indices of skipped residues.  
+
+```{r}
+# Read phi and psi angles for residues 2 and 3
+dih <- prodyna::read.dihedrals("HP35_every100.xtc.dih", resnos=c(2,3))
+str(dih)
+```
+
+```{r}
+dihInfo <- prodyna::read.dihedrals.info("HP35_every100.xtc.dih.info")
+str(dihInfo)
+```
+
+---
+
+Review the Ramachandran plots (with complete dihedral angle pairs) of residues 2 and 3 by running
+
+```{r}
+for (residue in c(2,3)) {
+  show(prodyna::plt.ramachandran(residue, dihedrals="HP35_every100.xtc.dih"))
+}
+```
+
+## dPCA
+
+To reduce the dimensionality of the data set, we run a dPCA+ on the freshly generated dihedrals. Since prodyna uses the fastpca binary, which is not installed in a standard path, we need to make it aware of its existence. Adapt this to your needs.
+
+```{r}
+prodyna::set.binary("fastpca", "/usr/local/bin/fastpca")
+prodyna::run.dPCAplus("HP35_every100.xtc.dih")
+
+```
+
+This will produces the following files:
+* `HP35_every100.xtc.dih.val` contains the eigenvalues.
+* `HP35_every100.xtc.dih.vec` contains the eigenvectors.
+* `HP35_every100.xtc.dih.cov` contains the covariance matrix. 
+* `HP35_every100.xtc.dih.proj` contains the projected data.
+* `HP35_every100.xtc.dih.stats` contains  mean values, sigmas and boundary shifts.
+
+--- 
+
+To check on the results, we plot on overview for the first ten principal components (PCs). This shows in the lower triangle the 2D projections of the PC pairs, their 1D projections on the diagonal, and the eigenvector contributions in the upper triangle.
+
+```{r, fig.width = 5, fig.height = 5}
+prodyna::plt.pcaOverview("HP35_every100.xtc.dih", pcs=1:10)
+```
+
+The projections suggest, that PCs higher than seven do not really show structure and probably encode thermal fluctuations only. Furthermore, PC six does not seem to be very interesting. Therefore, we perform dimensionality reduction by selecting PCs 1-5 and 7 as reaction coordinates.
+
+```{r}
+prodyna::generate.reactionCoordinates(coords="HP35_every100.xtc.dih.proj",
+                                      columns=c(1:5, 7),
+                                      output="HP35_every100.xtc.dih.proj.1-5.7")
+```
+
+This produces the file `HP35_every100.xtc.dih.proj.1-5.7` containing only the selected coordinates, as well as the file `HP35_every100.xtc.dih.proj.1-5.7.info` 
+which stores which columns of which files were selected.
+
+The reduced coordinate set will from now on define our reaction coordinates.
+```{r}
+rc <- "HP35_every100.xtc.dih.proj.1-5.7"  # reaction coordinates file
+```
+
+
+## Finding metastable states
+
+To identify metastable states, i.e. structures that are low in free energy and thus often sampled, we perform density-based geometric clustering on the reduced coordinate set. 
+
+```{r}
+prodyna::set.binary("clustering", "/usr/local/bin/clustering")
+```
+--- 
+
+First, we need to find a suitable radius for density estimation. We therefore compute neighbourhood populations and corresponding free energies for different neighbourhood radii.
+
+As a whole bunch of files are generated during the clustering process, we create a separate _clustering_ directory.
+
+```{r}
+dir.create("clustering")
+prodyna::clustering.estimate.radii(rc         = rc,
+                                   radii      = c(0.2, 0.3, 0.4, 0.5, 0.6),
+                                   prefix_fe  = "clustering/freeEnergy",
+                                   prefix_pop = "clustering/population")
+```
+
+This will create a directory called _clustering_ that contains files named `freeEnergy_<radius>` and `population_<radius>` where `<radius>` takes the values 0.2, 0.3, 0.4, 0.5, 0.6.
+
+Choosing a large radius will ensure good sampling. However, the population distribution should still show an exponential decay. This can be checked by plotting the neighbourhood populations per frame sorted in descending order.
+
+```{r}
+pops <- prodyna::read.populations(prefix_pop = "clustering/population", radii=NULL)
+prodyna::plt.populations(pops=pops, radii=NULL, logy=TRUE)
+
+```
+
+Thus, in the following a neighbourhood radius of 0.3 will be used.
+```{r}
+radius <- 0.3
+```
+
+---
+
+Next, we compute the neighbourhood per frame and store the result in a file _neighbours_.
+
+```{r}
+prodyna::clustering.compute.neighborhood(rc=rc, 
+                                         radius=radius,
+                                         prefix_fe = "clustering/freeEnergy",
+                                         fname_nn = "clustering/neighbours")
+```
+
+--- 
+
+In a next step, screening of the energy landscape is performed, i.e. frames below a certain energy threshold are clustered into microstates based on their distances.
+Here, the considered energy thresholds are 0.1, 0.2, 0.3, ... up to the maximum free energy level in the dataset.  
+
+```{r}
+clustering.screening(rc           = rc, 
+                     radius       = radius, 
+                     prefix_fe    = "clustering/freeEnergy",
+                     fname_nn     = "clustering/neighbours",
+                     prefix_clust = "clustering/thresholdClustering",
+                     min  = 0.1,
+                     step = 0.1, 
+                     max  = NULL)
+```
+This will create files named `thresholdClustering.<threshold>` in the clustering directory that contain the microstate assignments for each frame.
+
+--- 
+
+
+```{r}
+clustering.densityNetwork(rc="data/HP35_every100.xtc.dih.proj.1-4", minpop=100)
+
+```
+
+```{r}
+clustering.microstates(rc="data/HP35_every100.xtc.dih.proj.1-4", radius=0.15)
+plt.ramacolor(statetraj = paste(cls_dir, "microstates", sep="/"),
+              dihedrals = "data/HP35_every100.xtc.dih.proj.1-4")
+
+```
+
+```{r}
+T <- msm.transitionMatrix(traj=paste(cls_dir, "microstates", sep="/"),
+                          lag=1)
+traj1 <- msm.sim(T, 1, 100)
+traj2 <- msm.sim(T, 1, 100)
+
+plt.stateTrajComparison(traj1, traj2)
+
+```
+
+
+
+## $C_\alpha$ distances
+
+```{r}
+
+generate.caDistances(ref="data/HP35_NLE.pdb", 
+                     traj="data/HP35_every100.xtc",
+                     residue.mindist=4, 
+                     residue.maxdist=NULL, 
+                     ignoreCache=T) 
+
+run.PCA(coords="data/HP35_every100.xtc.caDist.10.35", corr=F, ignoreCache=T)
+
+```
+
+
