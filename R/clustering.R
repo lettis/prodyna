@@ -4,73 +4,67 @@
 #' A file named 'reaction_coords' that is linked to the reaction coordinates
 #' file is created within that directoy.
 #'
-#' @param rc Character, name of the reaction coordinates file.
+#' @param rc Character, name of the reaction coordinates file (normalized).
 #' @param dir Character, name of the output directory. If \code{NULL} the
 #'  output directory is assumed to be <rc>.clustering.
 #' @return absolute path to the output directory
 
 clustering.prepareOutputDir <- function(rc, dir) {
-  rc <- normalizePath(rc, mustWork=TRUE)
 
+  # default directory name
   if (is.null(dir)) {
-    dir <- paste(rc, "clustering", sep=".")
+    dir <- dirname(rc)
   }
+
   # create clustering directory
   if (!dir.exists(dir)) {
     message(paste("Creating output directory", dir))
     dir.create(dir)
   }
-  # create link to reaction coords
-  coords_link <- paste(dir, "reaction_coords", sep="/")
 
-  if (file.exists(coords_link)) {
-    # check whether coords_link is linked to rc
-    if(rc != Sys.readlink(coords_link)) {
-      stop(paste("File reaction_coords already exists in the output directory ",
-                 dir,
-                 ", but is not linked to the given reaction coordinates file",
-                 rc,
-                 sep=""))
-    }
-  } else {
-    file.symlink(rc, coords_link)
-  }
-  return(dir)
+  normalizePath(dir)
 }
 
 
-#' Radii estimation for density-based clustering.
+#' Neighbourhood populations and free energies for density-based clustering.
 #'
 #' Compute neighbourhood populations and free energies for different radii.
-#' The results are written to pop_<radius> and fe_<radius>, respectively.
+#'
+#' For each frame in the reaction coordinates file \code{rc} and each radius
+#' in \code{radii} the neighbourhood population and corresponding free energies
+#' are computed. The results are written to <prefix_pop>_<radius> and
+#' <prefix_fe>_<radius>, respectively.
 #'
 #' @param rc Character, name of the reaction coordinates file.
 #' @param radii Numeric vector, radii. The radius defines the size of the
-#'  neighbourhood that should be considered.
-#' @param dir Character, name of the output directory. If \code{NULL} the
-#'  output directory is assumed to be <rc>.clustering.
-#'  The ouput directory is created if it does not exist already.
+#'  neighbourhood.
+#' @param prefix_fe Character, free energy output file prefix
+#'  (underscore and radius will be appended).
+#' @param prefix_pop Character, populations output file prefix
+#'  (underscore and radius will be appended).
 #' @export
-clustering.estimate.radii <- function(rc, radii, dir=NULL) {
+clustering.estimate.radii <- function(rc, radii, prefix_fe, prefix_pop) {
 
-  dir <- clustering.prepareOutputDir(rc, dir)
+  if (!file.exists(rc)) {
+    stop(msg("missingFile", rc))
+  }
 
-  # run clustering
-  cmds <- paste("cd", dir, ";")
-  cmds <- paste(cmds,
-                get.binary("clustering"),
-                "density",
-                "-f reaction_coords",
-                "-R",
+  args <- paste("density",
+                "--file",
+                rc,
+                "--radii",
                 paste(radii, collapse = " "),
-                "-d fe",
-                "-p pop")
+                "--free-energy",
+                prefix_fe,
+                "--population",
+                prefix_pop)
 
-  message("Running radii estimation for density-based clustering ...")
+  message("Computing neighbourhood populations and free energies for density-based clustering ... ",
+          appendLF=F)
 
-  run.cmds(cmds)
+  run.cmd(get.binary("clustering"), args)
 
-  message("... finished.")
+  message("finished.")
 }
 
 
@@ -80,71 +74,88 @@ clustering.estimate.radii <- function(rc, radii, dir=NULL) {
 #'
 #' @param rc Character, name of the reaction coordinates file.
 #' @param radius Numeric, radius for density estimation.
-#' @param dir Character, name of the output directory. If \code{NULL} the
-#'  output directory is assumed to be <coords>.clustering.
-#'  The ouput directory is created if it does not exist already.
+#' @param prefix_fe Character, prefix of the free energy file (underscore and
+#'  radius will be appended).
+#' @param fname_nn Character, name of the nearest-neighbours output file.
+#' @param prefixOnly Logical, is \code{fname_fe} specified in terms of a prefix
+#'  only? (default: \code{TRUE}).
 #' @export
-clustering.compute.neighborhood <- function(rc, radius, dir=NULL) {
+clustering.compute.neighborhood <- function(rc, radius, prefix_fe, fname_nn) {
 
-  dir <- clustering.prepareOutputDir(rc, dir)
+  # append radius to free energy file prefix
+  fname_fe <- paste(prefix_fe, format(radius, nsmall=6), sep="_")
 
-  # run neighborhood computation
-  cmds <- paste("cd", dir, ";")
-  cmds <- paste(cmds,
-                get.binary("clustering"),
-                "density",
-                "-f reaction_coords",
-                "-r",
+  # check if input files exist
+  if(!file.exists(rc) || !file.exists(fname_fe)) {
+    stop(msg("missingFile", c(rc, fname_fe)))
+  }
+
+  args <- paste("density",
+                "--file",
+                rc,
+                "--radius",
                 radius,
-                paste("-D fe_", format(radius, nsmall=6), sep=""),
-                "-b nn")
+                "--free-energy-input",
+                fname_fe,
+                "--nearest-neighbors",
+                fname_nn)
 
-  message("Running neighborhood computation for density-based clustering ...")
+  message("Running neighborhood computation for density-based clustering ... ",
+          appendLF=F)
 
-  run.cmds(cmds)
+  run.cmd(get.binary("clustering"), args)
 
-  message("... finished.")
+  message("finished.")
 }
 
 
 #' Screening (density-based geometric clustering).
 #'
 #' Iterative clustering of frames below a specific free energy level.
-#' The resulting state assignments are written to clust.<energyCutOff>
+#' The resulting state assignments are written to <prefix_clust>.<threshold>
 #' where a state assignment of 0 indicates a frame with free energy larger
 #' than the cut-off value.
 #'
+#' The parameters \code{min}, \code{max}, and \code{step} define which energy
+#' thresholds are considered. The default value for both \code{min} and
+#' \code{step} is 0.1.
+#' If \code{max} is \code{NULL}, the maximum threshold corresponds to the
+#' maximum free energy level in the dataset.
+#'
 #' @param rc Character, name of the reaction coordinates file.
 #' @param radius Numeric, radius for density estimation.
-#' @param dir Character, name of the output directory. If \code{NULL} the
-#'  output directory is assumed to be <rc>.clustering.
-#'  The ouput directory is created if it does not exist already.
-#' @param min
-#' @param max
-#' @param step
+#' @param prefix_fe Character, prefix of the free energy file (underscore and
+#'  radius will be appended).
+#' @param fname_nn Character, name of the nearest-neighbours file.
+#' @param prefix_fe Character, prefix of the clustering output files (underscore and
+#'  energy threshold will be appended).
+#' @param min Numeric, minimum free energy threshold (default: 0.1)
+#' @param max Numeric, maximum free energy threshold (default: \code{NULL},
+#'  i.e. the maximum free energy level in the dataset)
+#' @param step Numeric, step size by which the free energy threshold
+#'  is increased.
 #' @export
-clustering.screening <- function(rc, radius, dir=NULL, min=NULL, max=NULL, step=NULL) {
+clustering.screening <- function(rc, radius, prefix_fe, fname_nn, prefix_clust, min=0.1, step=0.1, max=NULL) {
 
-  ##TODO handle min, max, step
+  feParams <- c(min, step, max)       # c(NULL, 1) == c(1)
 
-  dir <- clustering.prepareOutputDir(rc, dir)
-
-  # run neighborhood computation
-  cmds <- paste("cd", dir, ";")
-  cmds <- paste(cmds,
-                get.binary("clustering"),
-                "density",
-                "-f reaction_coords",
-                "-r",
+  args <- paste("density",
+                "--file",
+                rc,
+                "--radius",
                 radius,
-                paste("-D fe_", format(radius, nsmall=6), sep=""),
-                "-B nn",
-                "-T -1",
-                "-o clust")
+                "--free-energy-input",
+                paste(prefix_fe, format(radius, nsmall=6), sep="_"),
+                "--nearest-neighbors-input",
+                fname_nn,
+                "--threshold-screening",
+                paste(feParams, collapse=" "),
+                "--output",
+                prefix_clust)
 
   message("Running screening ...")
 
-  run.cmds(cmds)
+  run.cmd(get.binary("clustering"), args)
 
   message("... finished.")
 }
@@ -154,7 +165,7 @@ clustering.screening <- function(rc, radius, dir=NULL, min=NULL, max=NULL, step=
 #'
 #' Output files are
 #' \itemize{
-#' \item remapped_clust_<energyCutoff>
+#' \item remapped_clust_<feThreshold>
 #' \item network_nodes.dat, network_links.datm, network_leaves.dat
 #' \item network_end_node_traj.dat
 #' \item network_visualization.html
@@ -165,23 +176,26 @@ clustering.screening <- function(rc, radius, dir=NULL, min=NULL, max=NULL, step=
 #' @param dir Character, name of the output directory. If \code{NULL} the
 #'  output directory is assumed to be <rc>.clustering.
 #'  The ouput directory is created if it does not exist already.
-#' @param min
-#' @param max
-#' @param step
+#' @param min Numeric, minimum free energy threshold
+#' @param max Numeric, maximum free energy threshold
+#' @param step Numeric, step size. In every iteration the free energy threshold
+#'  is increased by this value.
 #' @export
-clustering.densityNetwork <- function(rc, minpop, dir=NULL, min=NULL, max=NULL, step=NULL) {
+clustering.densityNetwork <- function(minpop, inputDir, outputDir=NULL, min=NULL, max=NULL, step=NULL) {
 
-  ## TODO: min, max, step
+  ## TODO: min, max
 
-  dir <- clustering.prepareOutputDir(rc, dir)
+  # dir <- clustering.prepareOutputDir(rc, dir)
 
   # construct density network
-  cmds <- paste("cd", dir, ";")
+  cmds <- paste("cd", inputDir, ";")
   cmds <- paste(cmds,
                 get.binary("clustering"),
                 "network",
                 "-p",
-                minpop)
+                minpop,
+                "--step",
+                step)
 
   message("Constructing density network ...")
 
@@ -299,34 +313,6 @@ clustering.microstates.renamed <- function(microstates, output=NULL) {
   microstates_renamed
 }
 
-#' Read population files.
-#'
-#' TODO description.
-#'
-#' @param dir Character, path to population files.
-#' @param radii Numeric vector, selection of radii. If \code{NULL} (default),
-#' read all available population files.
-#' @return data frame with population per frame.
-#' @export
-clustering.get.pops <- function(dir, radii=NULL) {
 
-  if (substr(dir, nchar(dir), nchar(dir)) != "/") {
-    dir <- paste(dir, "/", sep="")
-  }
-  if (is.null(radii)) {
-    popfiles <- list.files(dir,
-                           pattern="pop_*",
-                           full.names=TRUE)
-  } else {
-    popfiles <- sapply(radii, function(r) {
-      list.files(dir,  paste("pop_", sprintf("%0.6f", r), sep=""))
-    })
-  }
-  do.call(data.frame,
-          lapply(popfiles, function(fname){
-            pops <- data.frame(read.table(fname)[[1]])
-            colnames(pops) <- tail(strsplit(fname, split="/")[[1]], n=1)
-            pops
-          }))
-}
+
 
