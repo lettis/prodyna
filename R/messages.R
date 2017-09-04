@@ -18,6 +18,7 @@ msg <- function(type, arg=NULL) {
                     "Output file(s) already exist. Nothing to compute.\n", sep=""),
     noExec  = paste("An error occured executing", arg, sep="\n"),
     format  = paste("The file", arg, "does not have the expected format."),
+    missingFile = paste("File(s)", paste(arg, sep=", ", collapse = ", "), "do not exist."),
     "Unknown warning or error.\n"
     )
 }
