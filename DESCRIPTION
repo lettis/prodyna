@@ -28,3 +28,6 @@ Imports:
     circlize, 
     magrittr
 LinkingTo: Rcpp
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr
