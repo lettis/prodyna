@@ -58,8 +58,7 @@ run.cmd <- function(cmd, args, onError=NULL) {
     if (!is.null(onError)) {
       onError()
     }
-    stop(msg("noExec", paste(cmd, paste(args, collapse =" "))),
-         call. = F)
+    stop(msg("noExec", paste(cmd, paste(args, collapse =" "))), call. = F)
   }
   tryCatch(
     system2(cmd, args, stdout = TRUE, stderr = TRUE),
