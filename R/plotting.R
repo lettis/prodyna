@@ -465,7 +465,9 @@ plt.populations <- function(pops, radii=NULL, logy=TRUE) {
   p <- ggplot(melt(pops, id.vars="id")) +
     geom_line(aes(x=id, y=value, color=variable)) +
     xlab("frames") +
-    ylab("sorted populations")
+    ylab("sorted populations") +
+    scale_color_discrete(name="Radius")
+
   if (logy) {
     p <- p + scale_y_log10()
   }

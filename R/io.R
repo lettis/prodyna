@@ -162,7 +162,7 @@ read.populations <- function(prefix_pop, radii=NULL) {
   do.call(data.frame,
           lapply(popfiles, function(fname){
             pops <- data.frame(read.table(fname)[[1]])
-            colnames(pops) <- tail(strsplit(fname, split="/")[[1]], n=1)
+            names(pops) <- paste("R", as.numeric(strsplit(fname, split="_")[[1]][-1]), sep="")
             pops
           }))
 }
