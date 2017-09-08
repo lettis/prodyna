@@ -127,7 +127,7 @@ clustering.compute.neighborhood <- function(rc, radius, prefix_fe, fname_nn) {
 #' @param prefix_fe Character, prefix of the free energy file (underscore and
 #'  radius will be appended).
 #' @param fname_nn Character, name of the nearest-neighbours file.
-#' @param prefix_fe Character, prefix of the clustering output files (underscore and
+#' @param prefix_clust Character, prefix of the clustering output files (underscore and
 #'  energy threshold will be appended).
 #' @param min Numeric, minimum free energy threshold (default: 0.1)
 #' @param max Numeric, maximum free energy threshold (default: \code{NULL},
@@ -135,7 +135,7 @@ clustering.compute.neighborhood <- function(rc, radius, prefix_fe, fname_nn) {
 #' @param step Numeric, step size by which the free energy threshold
 #'  is increased.
 #' @export
-clustering.screening <- function(rc, radius, prefix_fe, fname_nn, prefix_clust, min=0.1, step=0.1, max=NULL) {
+clustering.screening <- function(rc, radius, prefix_fe, fname_nn, prefix_clust, min=0.1, max=NULL, step=0.1) {
 
   feParams <- c(min, step, max)       # c(NULL, 1) == c(1)
 
@@ -153,11 +153,11 @@ clustering.screening <- function(rc, radius, prefix_fe, fname_nn, prefix_clust, 
                 "--output",
                 prefix_clust)
 
-  message("Running screening ...")
+  message("Running screening ... ", appendLF=F)
 
   run.cmd(get.binary("clustering"), args)
 
-  message("... finished.")
+  message("finished.")
 }
 
 
@@ -170,38 +170,34 @@ clustering.screening <- function(rc, radius, prefix_fe, fname_nn, prefix_clust, 
 #' \item network_end_node_traj.dat
 #' \item network_visualization.html
 #' }
+#' They are written to the directory of the <prefix_clust> files.
 #'
-#' @param rc Character, name of the reaction coordinates file.
-#' @param minpop Numeric, minimum population to count microstate as node.
-#' @param dir Character, name of the output directory. If \code{NULL} the
-#'  output directory is assumed to be <rc>.clustering.
-#'  The ouput directory is created if it does not exist already.
-#' @param min Numeric, minimum free energy threshold
-#' @param max Numeric, maximum free energy threshold
-#' @param step Numeric, step size. In every iteration the free energy threshold
-#'  is increased by this value.
+#' TODO clustering files currently need to be named clust.<radius>
+#'
+#' @param minpop Numeric, minimum population to count a microstate as node.
+#' @param prefix_clust Character, prefix of the clustering files.
+#' @param step Numeric, step size, i.e. free energy differences between nodes.
 #' @export
-clustering.densityNetwork <- function(minpop, inputDir, outputDir=NULL, min=NULL, max=NULL, step=NULL) {
+clustering.densityNetwork <- function(minpop, prefix_clust, step=0.1) {
 
-  ## TODO: min, max
+  dir <- dirname(prefix_clust)
+  prefix_clust <- basename(prefix_clust)
 
-  # dir <- clustering.prepareOutputDir(rc, dir)
-
-  # construct density network
-  cmds <- paste("cd", inputDir, ";")
-  cmds <- paste(cmds,
+  cmds <- paste("cd", dir, ";",
                 get.binary("clustering"),
                 "network",
-                "-p",
+                #"--basename",
+                #prefix_clust,
+                "--minpop",
                 minpop,
                 "--step",
                 step)
 
-  message("Constructing density network ...")
+  message("Constructing density network ... ", appendLF=F)
 
   run.cmds(cmds)
 
-  message("... finished.")
+  message("finished.")
 }
 
 
@@ -209,47 +205,47 @@ clustering.densityNetwork <- function(minpop, inputDir, outputDir=NULL, min=NULL
 #'
 #' Assign frames to a distinct microstate using the tree structure obtained by
 #' \code{\link{clustering.densityNetwork}}.
-#' The resulting assignment is written to <output>.
+#' The resulting assignment is written to file <microstates>.
 #'
 #' @param rc Character, name of reaction coordinates file.
 #' @param radius Numeric, density estimation radius.
+#' @param prefix_fe Character, prefix of the free energy files (underscore and
+#'  radius will be appended).
+#' @param nn Character, name of the nearest-neighbours file.
+#' @param init Character, name of the file specifying the initial state
+#'  definition.
+#' @param microstates Character, name of the file storing the resulting state
+#'  trajectory.
 #' @param sorted Logical, should microstate names be ordered by descending
 #'  populations? (Default: \code{TRUE})
-#' @param output Character, name of the resulting microstate trajectory file.
-#'  (Default: "microstates")
-#' @param dir Character, name of the output directory. If \code{NULL} the
-#'  output directory is assumed to be <rc>.clustering.
-#'  The ouput directory is created if it does not exist already.
 #' @importFrom dplyr desc arrange mutate filter select
 #' @importFrom magrittr "%>%"
 #' @export
-clustering.microstates <- function(rc, radius, sorted=TRUE, output="microstates", dir=NULL) {
-  dir <- clustering.prepareOutputDir(rc, dir)
+clustering.microstates <- function(rc, radius, prefix_fe, nn, init, microstates, sorted=TRUE) {
 
   # run neighborhood computation
-  cmds <- paste("cd", dir, ";")
-  cmds <- paste(cmds,
-               get.binary("clustering"),
-               "density",
-               "-f reaction_coords",
-               "-r",
-               radius,
-               paste("-D fe_", format(radius, nsmall=6), sep=""),
-               "-B nn",
-               "-i network_end_node_traj.dat",
-               paste("-o", output))
+  args <- paste("density",
+                "--file",
+                rc,
+                "--radius",
+                radius,
+                "--free-energy-input",
+                paste(prefix_fe, format(radius, nsmall=6), sep="_"),
+                "--nearest-neighbors-input",
+                nn,
+                "--input",
+                init,
+                "--output",
+                microstates)
 
-  message("Computing microstates from density network ...")
-  run.cmds(cmds)
+  message("Computing microstates from density network ... ", appendLF=F)
+  run.cmd(get.binary("clustering"), args)
 
   if (sorted) {
     # reorder state names by descending population
-    output <- paste(dir, output, sep="/")
-    traj <- data.table::fread(output,
-                              verbose=FALSE,
-                              showProgress=FALSE)
+    traj   <- data.table::fread(microstates, verbose=FALSE, showProgress=FALSE)
     states <- unique(traj$V1)
-    pops <- sapply(states, function(s){sum(traj$V1 == s)})
+    pops   <- sapply(states, function(s){sum(traj$V1 == s)})
 
     # match old to new names
     matching <- data.frame(states, pops) %>%
@@ -265,13 +261,15 @@ clustering.microstates <- function(rc, radius, sorted=TRUE, output="microstates"
     }
     # convert trajectory
     traj <- sapply(traj$V1, function(s){dict[[s]]})
+
     data.table::fwrite(list(traj),
-                       output,
+                       microstates,
                        col.names=FALSE,
                        verbose=FALSE,
                        showProgress=FALSE)
+
   }
-  message("... finished.")
+  message("finished.")
 }
 
 #' Rename microstates.

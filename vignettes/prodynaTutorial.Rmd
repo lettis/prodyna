@@ -212,16 +212,10 @@ prodyna::plt.populations(pops=pops, radii=NULL, logy=TRUE)
 
 ```
 
-Thus, in the following a neighbourhood radius of 0.3 will be used.
+Based on this plot we choose a radius of 0.3 which is now used to compute the neighbourhood per frame and store the result in a file _neighbours_.
+
 ```{r}
 radius <- 0.3
-```
-
----
-
-Next, we compute the neighbourhood per frame and store the result in a file _neighbours_.
-
-```{r}
 prodyna::clustering.compute.neighborhood(rc=rc, 
                                          radius=radius,
                                          prefix_fe = "clustering/freeEnergy",
@@ -230,18 +224,18 @@ prodyna::clustering.compute.neighborhood(rc=rc,
 
 --- 
 
-In a next step, screening of the energy landscape is performed, i.e. frames below a certain energy threshold are clustered into microstates based on their distances.
+Next, screening of the energy landscape is performed, i.e. frames below a certain energy threshold are clustered into microstates based on their distances.
 Here, the considered energy thresholds are 0.1, 0.2, 0.3, ... up to the maximum free energy level in the dataset.  
 
 ```{r}
-clustering.screening(rc           = rc, 
-                     radius       = radius, 
-                     prefix_fe    = "clustering/freeEnergy",
-                     fname_nn     = "clustering/neighbours",
-                     prefix_clust = "clustering/thresholdClustering",
-                     min  = 0.1,
-                     step = 0.1, 
-                     max  = NULL)
+prodyna::clustering.screening(rc           = rc, 
+                              radius       = radius, 
+                              prefix_fe    = "clustering/freeEnergy",
+                              fname_nn     = "clustering/neighbours",
+                              prefix_clust = "clustering/clust",
+                              min  = 0.1,
+                              step = 0.1, 
+                              max  = NULL)
 ```
 This will create files named `thresholdClustering.<threshold>` in the clustering directory that contain the microstate assignments for each frame.
 
@@ -249,19 +243,23 @@ This will create files named `thresholdClustering.<threshold>` in the clustering
 
 
 ```{r}
-clustering.densityNetwork(rc="data/HP35_every100.xtc.dih.proj.1-4", minpop=100)
-
+prodyna::clustering.densityNetwork(minpop=100,
+                                   prefix_clust= "clustering/clust",
+                                   step = 0.1)
 ```
 
 ```{r}
-clustering.microstates(rc="data/HP35_every100.xtc.dih.proj.1-4", radius=0.15)
-plt.ramacolor(statetraj = paste(cls_dir, "microstates", sep="/"),
-              dihedrals = "data/HP35_every100.xtc.dih.proj.1-4")
-
+prodyna::clustering.microstates(rc          = rc, 
+                                radius      = radius,
+                                prefix_fe   = "clustering/freeEnergy",
+                                nn          = "clustering/neighbours", 
+                                init        = "clustering/network_end_node_traj.dat", 
+                                microstates = "clustering/microstates",
+                                sorted      = T) 
 ```
 
 ```{r}
-T <- msm.transitionMatrix(traj=paste(cls_dir, "microstates", sep="/"),
+T <- msm.transitionMatrix(traj=paste("microstates", sep="/"),
                           lag=1)
 traj1 <- msm.sim(T, 1, 100)
 traj2 <- msm.sim(T, 1, 100)
