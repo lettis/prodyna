@@ -217,7 +217,11 @@ plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
 #' @export
 plt.pcaProj <- function(pca, dim1=1, dim2=2, diverge=FALSE) {
 
-  pcs <- fread(pca, select=c(dim1, dim2), verbose=FALSE, showProgress=FALSE)
+  if (is.data.frame(pca)) {
+    pcs <- pca
+  } else {
+    pcs <- fread(pca, select=c(dim1, dim2), verbose=FALSE, showProgress=FALSE)
+  }
   colnames(pcs) <- c("x", "y")
 
   if (diverge) {
