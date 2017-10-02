@@ -1,12 +1,8 @@
 ---
 title: "Prodyna Tutorial"
-author: "Vignette Author"
+author: "Author"
 date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Prodyna Tutorial}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+output: html_notebook
 ---
 
 # Analysis of Protein Dynamics: The Prodyna Tutorial 
@@ -70,11 +66,11 @@ This tutorial comes with a small data set of HP-35 NLE/NLE, subsampled (every 10
 
 The data is already adapted to prodyna/Gromacs, with
 
-* the reference structure `HP35.pdb`
-* the binary trajectory data `HP35_every100.xtc`
-* and a Gromacs-specific file to identify protein residues (`residuetypes.dat`)
+ * the reference structure `HP35.pdb`
+ * the binary trajectory data `HP35_every100.xtc`
+ * and a Gromacs-specific file to identify protein residues (`residuetypes.dat`)
 
-The data can be downloaded from TODO. For the following examples to work, the files must be stored _in the same directory_ as this tutorial (TODO).
+The data can be downloaded from TODO. 
 
 ---
 
@@ -115,8 +111,11 @@ prodyna::generate.dihedrals(ref  = "HP35_NLE.pdb",
 ```
 
 This will produce two files
-* `HP35_every100.xtc.dih` with columns corresponding to $\varphi$ and $\psi$ dihedral angles of residues 2 to 34 (first and last residue is skipped) 
-* `HP35_every100.xtc.dih.info` containing information on the reference and trajetory files, the total number of residues, as well as the indices of skipped residues.  
+
+ * `HP35_every100.xtc.dih` with columns corresponding to $\varphi$ and $\psi$ dihedral angles of residues 2 to 34 
+   (first and last residue is skipped) 
+ * `HP35_every100.xtc.dih.info` containing information on the reference and trajetory files, the total number of residues, as well as the indices of skipped residues.  
+
 
 ```{r}
 # Read phi and psi angles for residues 2 and 3
@@ -150,11 +149,12 @@ prodyna::run.dPCAplus("HP35_every100.xtc.dih")
 ```
 
 This will produces the following files:
-* `HP35_every100.xtc.dih.val` contains the eigenvalues.
-* `HP35_every100.xtc.dih.vec` contains the eigenvectors.
-* `HP35_every100.xtc.dih.cov` contains the covariance matrix. 
-* `HP35_every100.xtc.dih.proj` contains the projected data.
-* `HP35_every100.xtc.dih.stats` contains  mean values, sigmas and boundary shifts.
+
+ * `HP35_every100.xtc.dih.val` contains the eigenvalues.
+ * `HP35_every100.xtc.dih.vec` contains the eigenvectors.
+ * `HP35_every100.xtc.dih.cov` contains the covariance matrix. 
+ * `HP35_every100.xtc.dih.proj` contains the projected data.
+ * `HP35_every100.xtc.dih.stats` contains  mean values, sigmas and boundary shifts.
 
 --- 
 
@@ -167,9 +167,9 @@ prodyna::plt.pcaOverview("HP35_every100.xtc.dih", pcs=1:10)
 The projections suggest, that PCs higher than seven do not really show structure and probably encode thermal fluctuations only. Furthermore, PC six does not seem to be very interesting. Therefore, we perform dimensionality reduction by selecting PCs 1-5 and 7 as reaction coordinates.
 
 ```{r}
-prodyna::generate.reactionCoordinates(coords="HP35_every100.xtc.dih.proj",
-                                      columns=c(1:5, 7),
-                                      output="HP35_every100.xtc.dih.proj.1-5.7")
+prodyna::generate.reactionCoordinates(coords  = "HP35_every100.xtc.dih.proj",
+                                      columns = c(1:5, 7),
+                                      output  = "HP35_every100.xtc.dih.proj.1-5.7")
 ```
 
 This produces the file `HP35_every100.xtc.dih.proj.1-5.7` containing only the selected coordinates, as well as the file `HP35_every100.xtc.dih.proj.1-5.7.info` 
@@ -181,7 +181,7 @@ rc <- "HP35_every100.xtc.dih.proj.1-5.7"  # reaction coordinates file
 ```
 
 
-## Finding metastable states
+## Geometric, density-based clustering: Finding metastable states
 
 To identify metastable states, i.e. structures that are low in free energy and thus often sampled, we perform density-based geometric clustering on the reduced coordinate set. 
 
@@ -192,22 +192,22 @@ prodyna::set.binary("clustering", "/usr/local/bin/clustering")
 
 First, we need to find a suitable radius for density estimation. We therefore compute neighbourhood populations and corresponding free energies for different neighbourhood radii.
 
-As a whole bunch of files are generated during the clustering process, we create a separate _clustering_ directory.
+As a whole bunch of files are generated during the (geometric) clustering process, we create a separate  directory.
 
 ```{r}
-dir.create("clustering")
+dir.create("geomClust")
 prodyna::clustering.estimate.radii(rc         = rc,
                                    radii      = c(0.2, 0.3, 0.4, 0.5, 0.6),
-                                   prefix_fe  = "clustering/freeEnergy",
-                                   prefix_pop = "clustering/population")
+                                   fe_prefix  = "geomClust/freeEnergy",
+                                   pop_prefix = "geomClust/population")
 ```
 
-This will create a directory called _clustering_ that contains files named `freeEnergy_<radius>` and `population_<radius>` where `<radius>` takes the values 0.2, 0.3, 0.4, 0.5, 0.6.
+This will create a directory called _geomClust_ that contains files named `freeEnergy_<radius>` and `population_<radius>` where `<radius>` takes the values 0.2, 0.3, 0.4, 0.5, 0.6.
 
 Choosing a large radius will ensure good sampling. However, the population distribution should still show an exponential decay. This can be checked by plotting the neighbourhood populations per frame sorted in descending order.
 
 ```{r}
-pops <- prodyna::read.populations(prefix_pop = "clustering/population", radii=NULL)
+pops <- prodyna::read.populations(pop_prefix = "geomClust/population", radii=NULL)
 prodyna::plt.populations(pops=pops, radii=NULL, logy=TRUE)
 
 ```
@@ -216,10 +216,10 @@ Based on this plot we choose a radius of 0.3 which is now used to compute the ne
 
 ```{r}
 radius <- 0.3
-prodyna::clustering.compute.neighborhood(rc=rc, 
-                                         radius=radius,
-                                         prefix_fe = "clustering/freeEnergy",
-                                         fname_nn = "clustering/neighbours")
+prodyna::clustering.compute.neighborhood(rc        = rc, 
+                                         radius    = radius,
+                                         fe_prefix = "geomClust/freeEnergy",
+                                         nn        = "geomClust/neighbours")
 ```
 
 --- 
@@ -230,58 +230,106 @@ Here, the considered energy thresholds are 0.1, 0.2, 0.3, ... up to the maximum 
 ```{r}
 prodyna::clustering.screening(rc           = rc, 
                               radius       = radius, 
-                              prefix_fe    = "clustering/freeEnergy",
-                              fname_nn     = "clustering/neighbours",
-                              prefix_clust = "clustering/clust",
-                              min  = 0.1,
-                              step = 0.1, 
-                              max  = NULL)
+                              fe_prefix    = "geomClust/freeEnergy",
+                              nn           = "geomClust/neighbours",
+                              clust_prefix = "geomClust/clust",
+                              min          = 0.1,
+                              step         = 0.1, 
+                              max          = NULL)
 ```
-This will create files named `thresholdClustering.<threshold>` in the clustering directory that contain the microstate assignments for each frame.
+This will create files named `clust.<threshold>` in the clustering directory that contain the microstate assignments per frame for different energy thresholds.
 
 --- 
 
+The density network describes the geometrical similarity of microstates at different levels of free energy. It can be computed via:
 
 ```{r}
-prodyna::clustering.densityNetwork(minpop=100,
-                                   prefix_clust= "clustering/clust",
-                                   step = 0.1)
+prodyna::clustering.densityNetwork(minpop       = 100,
+                                   clust_prefix = "geomClust/clust",
+                                   step         = 0.1)
 ```
+This will produces several files in the `geomClust` directory:
+
+ * `remapped_clust_<feThreshold>` 
+ * `network_nodes.dat`, `network_links.dat`, `network_leaves.dat`
+ * `network_end_node_traj.dat`
+ * `network_visualization.html`
+
+The `remapped_clust` files contain the same state assignments as the `clust` files. However, microstates are given a new id that is unique w.r.t. the various energy levels.
+
+The `.dat` files describes the (multi-)tree structure of the density network. A visualization of this network is given by the `.html` file.
+
+The `network_end_node_traj.dat` file contains state assignments per frame where each frame is given a non-zero id only if it is assigned to a leaf node. These state assignments are used as a seed for separating the free energy landscape into different microstates. 
 
 ```{r}
 prodyna::clustering.microstates(rc          = rc, 
                                 radius      = radius,
-                                prefix_fe   = "clustering/freeEnergy",
-                                nn          = "clustering/neighbours", 
-                                init        = "clustering/network_end_node_traj.dat", 
-                                microstates = "clustering/microstates",
+                                fe_prefix   = "geomClust/freeEnergy",
+                                nn          = "geomClust/neighbours", 
+                                init        = "geomClust/network_end_node_traj.dat", 
+                                microstates = "geomClust/microstates",
                                 sorted      = T) 
 ```
+The file `microstates` contains the final state assignments per frame obtained by the geometric clustering procedure. Note that the state ids may have large values and are not in consecutive order.
+
+## Dynamical clustering
+
+To obtain states that are both geometrically similar and somewhat stable over time, the MPP (most-probable-path) algorithm is used to cluster the microstates that resulted from geometric clustering by their transition times.
+
+Here, the paramter `lagtime` specifies how many frames should be skipped when computing transition probabilities from one state to another. This way processes on very short timescales will be discarded and -given a high enough lagtime- the resulting system will be approximately markovian. 
+
+The metastability criterion \code{Q} controls how stable a state has to be to remain as single state. States with a self-transition probability lower than the metastability \code{Q} will be combined with the state to which their transition probability is highest.
 
 ```{r}
-T <- msm.transitionMatrix(traj=paste("microstates", sep="/"),
-                          lag=1)
-traj1 <- msm.sim(T, 1, 100)
-traj2 <- msm.sim(T, 1, 100)
+dir.create("dynamicClust")
+prodyna::clustering.mpp(microstates = "geomClust/microstates",
+                        fe_prefix   = "geomClust/freeEnergy",
+                        radius      = 0.3,
+                        lagtime     = 25,
+                        mpp         = "dynamicClust/mpp",
+                        Q           = 0.3)
+```
 
-plt.stateTrajComparison(traj1, traj2)
+This will generate files called `mpp_pop_0.200.dat` and `mpp_traj_0.200.dat`. (TODO: and other output files ...)
+
+The population files hold the population information of the clusters for the given metastibility, while the trajectory files contain the resulting cluster/state trajectories.
+
+---
+
+Compute the waiting time distributions resulting from coring with different window sizes. 
+
+```{r}
+# window sizes to test
+ws <- c(5,10,15,20)
+
+prodyna::clustering.wtDistributions(traj       = "dynamicClust/mpp_traj_0.300.dat",
+                                    wtd_prefix = "dynamicClust/wtDist",
+                                    wsizes     = ws)
+
+wtd <- prodyna::read.wtDistributions(wtd_prefix  = "dynamicClust/wtDist",
+                                      states      = c(1,2,3),
+                                      wsizes      = ws)
+prodyna::plt.wtDistributions(wtd, max_frame = 300)
 
 ```
 
-
-
-## $C_\alpha$ distances
+We use a coring window of 10 frames for state 1 and 2, and a coring window of 5 for state 3. The cored state trajectory is obtained via:
 
 ```{r}
+prodyna::clustering.coring(traj       = "dynamicClust/mpp_traj_0.300.dat",
+                           traj_cored = "dynamicClust/coredTrajectory",
+                           states = c(1,2,3),
+                           wsizes = c(10,10,5))
+```
 
-generate.caDistances(ref="data/HP35_NLE.pdb", 
-                     traj="data/HP35_every100.xtc",
-                     residue.mindist=4, 
-                     residue.maxdist=NULL, 
-                     ignoreCache=T) 
+---
 
-run.PCA(coords="data/HP35_every100.xtc.caDist.10.35", corr=F, ignoreCache=T)
+The cored state trajectory is approximately Markovian. The transition matrix of this system can be estimated from the trajectory.
 
+```{r}
+T <- msm.transitionMatrix(traj = "dynamicClust/coredTrajectory",
+                          lag  = 1)
+simulated_trajectory <- msm.sim(T, 1, 100)
 ```
 
 

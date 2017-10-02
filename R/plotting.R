@@ -529,5 +529,32 @@ plt.mppNetwork <- function(dirname) {
        layout=layout_with_kk)
 }
 
+#' Plot waiting time distributions.
+#'
+#' @import ggplot2
+#' @export
+plt.wtDistributions <- function(wtd, max_frame=NULL) {
 
+  # state and window size as factor
+  wtd$wsize <- factor(wtd$wsize)
+  wtd$state <- factor(wtd$state)
+
+  title <- "Waiting Time Distribution"
+
+  plt <-ggplot(wtd,
+               aes(x=frame,
+               y=probability,
+               group=wsize,
+               color=wsize)) +
+        geom_line() +
+        ggtitle(title) +
+        scale_color_discrete(name="window size") +
+        facet_grid(state ~ .,
+                   labeller = labeller(.rows=function(i) {paste("state", i)}))
+
+  if(!is.null(max_frame)) {
+    plt <- plt + xlim(0, max_frame)
+  }
+  return(plt)
+}
 
