@@ -13,6 +13,7 @@
 #' @param resnos Numeric vector, residue numbers for which dihedral angles
 #'  should be read. If \code{NULL} (default) read dihedrals for all residues.
 #' @return A data.frame with \eqn{\phi} and \eqn{\psi} angles.
+#' @importFrom data.table fread
 #' @export
 read.dihedrals <- function(dihedrals, dihedralsInfo=NULL, resnos=NULL) {
 
@@ -21,14 +22,18 @@ read.dihedrals <- function(dihedrals, dihedralsInfo=NULL, resnos=NULL) {
     dihedralsInfo <- paste(dihedrals, ".info", sep="")
   }
 
-  dInf <- read.dihedrals.info(dihedralsInfo)
-  storedResnos <- (1:dInf$nRes)[-dInf$skippedResnos]
+  if (file.exists(dihedralsInfo)) {
+    dInf <- read.dihedrals.info(dihedralsInfo)
+    storedResnos <- (1:dInf$nRes)[-dInf$skippedResnos]
+  } else {
+    # No info file exists, assume default case: first and last dihedral missing
+    n_dih <- ncol(fread(dihedrals, verbose=F, showProgress=F, nrows=1))
+    storedResnos <- 2:(n_dih/2+1)
+  }
 
   if (is.null(resnos)){
     # Read all dihedrals.
-    dih <- data.table::fread(dihedrals,
-                             verbose=FALSE,
-                             showProgress=FALSE)
+    dih <- fread(dihedrals, verbose=FALSE, showProgress=FALSE)
     resnos <- storedResnos
 
   } else if (!all(resnos %in% storedResnos)) {
@@ -39,10 +44,7 @@ read.dihedrals <- function(dihedrals, dihedralsInfo=NULL, resnos=NULL) {
     cols <- do.call("c", lapply(resnos,
                                 function(i){c(2*(which(i==storedResnos))-1,
                                               2*(which(i==storedResnos)))}))
-    dih <- data.table::fread(dihedrals,
-                             select=cols,
-                             verbose=FALSE,
-                             showProgress=FALSE)
+    dih <- fread(dihedrals, select=cols, verbose=FALSE, showProgress=FALSE)
   }
   colnames(dih) <- paste(c("phi", "psi"), rep(resnos, each=2), sep="")
   return(dih)
@@ -119,16 +121,16 @@ write.dihedrals.info <- function(ref, traj, nRes, skipCA, fname=NULL) {
 #' @param vals Character or numeric vector, either name of the .val/.valn file
 #'  or vector of eigenvalues.
 #' @return cumulative fluctuations
+#' @importFrom data.table fread
 #' @export
 read.cumFlucts <- function(vals) {
 
   if (is.character(vals)) {
-    vals <- data.table::fread(vals)
+    vals <- fread(vals)
     vals <- vals$V1
   }
   return(cumsum(vals/max(vals)))
 }
-
 
 #' Read population files.
 #'
@@ -159,12 +161,13 @@ read.populations <- function(pop_prefix, radii=NULL) {
     })
   }
 
-  do.call(data.frame,
-          lapply(popfiles, function(fname){
-            pops <- data.frame(read.table(fname)[[1]])
-            names(pops) <- paste("R", as.numeric(strsplit(fname, split="_")[[1]][-1]), sep="")
-            pops
-          }))
+  do.call(
+    data.frame,
+    lapply(popfiles, function(fname){
+      pops        <- data.frame(read.table(fname)[[1]])
+      names(pops) <- paste0("R", as.numeric(strsplit(fname, split="_")[[1]][-1]))
+      return(pops)
+  }))
 }
 
 #' Read waiting time distributions.
@@ -200,8 +203,7 @@ read.wtDistributions <- function(wtd_prefix, states, wsizes) {
     }
   }
 
-  wtDistribution <- data.frame(do.call(rbind, dists))
-
+  wtDistribution        <- data.frame(do.call(rbind, dists))
   names(wtDistribution) <- c("frame", "probability", "state", "wsize")
 
   return(wtDistribution)
