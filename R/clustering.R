@@ -16,7 +16,7 @@
 #' @param pop_prefix Character, populations output file prefix
 #'  (underscore and radius will be appended). Default is "pop".
 #' @export
-clustering.estimate.radii <- function(rc, radii, fe_prefix="fe", pop_prefix="pop") {
+clustering.estimate.radii <- function(rc, radii, fe_prefix, pop_prefix) {
 
   if (!file.exists(rc)) {
     stop(msg("missingFile", rc))
@@ -51,13 +51,13 @@ clustering.estimate.radii <- function(rc, radii, fe_prefix="fe", pop_prefix="pop
 #'  radius will be appended). Default is "fe".
 #' @param nn Character, name of the nearest-neighbours output file.
 #' @export
-clustering.compute.neighborhood <- function(rc, radius, fe_prefix="fe", nn="nn") {
+clustering.compute.neighborhood <- function(rc, radius, fe_prefix, nn) {
 
   # append radius to free energy file prefix
   fe_fname <- paste(fe_prefix, format(radius, nsmall=6), sep="_")
 
   # check if input files exist
-  if(!file.exists(rc) || !file.exists(fe_fname)) {
+  if(!all(file.exists(c(rc, fe_fname)))) {
     stop(msg("missingFile", c(rc, fe_fname)))
   }
 
@@ -98,8 +98,8 @@ clustering.compute.neighborhood <- function(rc, radius, fe_prefix="fe", nn="nn")
 #' @param fe_prefix Character, prefix of the free energy file (underscore and
 #'  radius will be appended).
 #' @param nn Character, name of the nearest-neighbours file.
-#' @param clust_prefix Character, prefix of the clustering output files (underscore and
-#'  energy threshold will be appended).
+#' @param clust_prefix Character, prefix of the clustering output files
+#'  (underscore and energy threshold will be appended).
 #' @param min Numeric, minimum free energy threshold (default: 0.1)
 #' @param max Numeric, maximum free energy threshold (default: \code{NULL},
 #'  i.e. the maximum free energy level in the dataset)
@@ -110,13 +110,21 @@ clustering.screening <- function(rc, radius, fe_prefix, nn, clust_prefix, min=0.
 
   feParams <- c(min, step, max)       # c(NULL, 1) == c(1)
 
+  # append radius to free energy file prefix
+  fe_fname <- paste(fe_prefix, format(radius, nsmall=6), sep="_")
+
+  # check if input files exist
+  if(!all(file.exists(rc, fe_fname, nn))) {
+    stop(msg("missingFile", c(rc, fe_fname, nn)))
+  }
+
   args <- paste("density",
                 "--file",
                 rc,
                 "--radius",
                 radius,
                 "--free-energy-input",
-                paste(fe_prefix, format(radius, nsmall=6), sep="_"),
+                fe_fname,
                 "--nearest-neighbors-input",
                 nn,
                 "--threshold-screening",
@@ -177,7 +185,7 @@ clustering.densityNetwork <- function(minpop, clust_prefix="clust", step=0.1) {
 #' Compute Microstate trajectory.
 #'
 #' Assign frames to a distinct microstate using the tree structure obtained by
-#' \code{\link{clustering.densityNetwork}}.
+#' \link{clustering.densityNetwork}.
 #' The resulting assignment is written to file <microstates>.
 #'
 #' @param rc Character, name of reaction coordinates file.
@@ -193,6 +201,7 @@ clustering.densityNetwork <- function(minpop, clust_prefix="clust", step=0.1) {
 #'  populations? (Default: \code{TRUE})
 #' @importFrom dplyr desc arrange mutate filter select
 #' @importFrom magrittr "%>%"
+#' @importFrom data.table fwrite fread
 #' @export
 clustering.microstates <- function(rc, radius, fe_prefix, nn, init, microstates, sorted=TRUE) {
 
@@ -201,7 +210,7 @@ clustering.microstates <- function(rc, radius, fe_prefix, nn, init, microstates,
 
   # check if input files exist
   if(!all(file.exists(rc, fe_fname, nn, init))) {
-    stop(msg("missingFile", c(rc, fe_fname)))
+    stop(msg("missingFile", c(rc, fe_fname, nn, init)))
   }
 
   # run neighborhood computation
@@ -225,7 +234,7 @@ clustering.microstates <- function(rc, radius, fe_prefix, nn, init, microstates,
 
   if (sorted) {
     # reorder state names by descending population
-    traj   <- data.table::fread(microstates, verbose=FALSE, showProgress=FALSE)
+    traj   <- fread(microstates, verbose=FALSE, showProgress=FALSE)
     states <- unique(traj$V1)
     pops   <- sapply(states, function(s){sum(traj$V1 == s)})
 
@@ -245,11 +254,7 @@ clustering.microstates <- function(rc, radius, fe_prefix, nn, init, microstates,
     # convert trajectory
     traj <- sapply(traj$V1, function(s){dict[[s]]})
 
-    data.table::fwrite(list(traj),
-                       microstates,
-                       col.names=FALSE,
-                       verbose=FALSE,
-                       showProgress=FALSE)
+    fwrite(list(traj), microstates, col.names=F, verbose=F, showProgress=F)
   }
 
 }
@@ -264,13 +269,12 @@ clustering.microstates <- function(rc, radius, fe_prefix, nn, init, microstates,
 #'  If \code{NULL}, no output file is created.
 #' @return renamed microstate trajectory
 #' @importFrom magrittr "%>%"
+#' @importFrom data.table fwrite fread
 #' @importFrom dplyr mutate count arrange
 #' @export
 clustering.microstates.renamed <- function(microstates, output=NULL) {
   if (is.character(microstates)) {
-    microstates <- data.table::fread(microstates,
-                                     verbose=FALSE,
-                                     showProgress=FALSE)[[1]]
+    microstates <- fread(microstates, verbose=FALSE, showProgress=FALSE)[[1]]
   }
   microstates_renamed <- microstates
   n_microstates       <- length(unique(microstates))
@@ -283,11 +287,11 @@ clustering.microstates.renamed <- function(microstates, output=NULL) {
     microstates_renamed[microstates==state] <- counts[counts$state==state,]$idx
   }
   if (!is.null(output)) {
-    data.table::fwrite(data.frame(microstates_renamed),
-                       sep=" ",
-                       col.names    = FALSE,
-                       verbose      = FALSE,
-                       showProgress = FALSE)
+    fwrite(data.frame(microstates_renamed),
+           sep=" ",
+           col.names    = FALSE,
+           verbose      = FALSE,
+           showProgress = FALSE)
   }
   return(microstates_renamed)
 }
@@ -314,10 +318,27 @@ clustering.microstates.renamed <- function(microstates, output=NULL) {
 #' @param Qmin Numeric, minimum metastability (\eqn{\in (0,1]})
 #' @param Qstep Numeric, step size
 #' @param Qmax Numeric, maximum metastability (\eqn{\in (0,1]})
-
+#' @examples
+#'  clustering.mpp(microstates = "microstates",
+#'                 fe_prefix   = "freeEnergy",
+#'                 radius      = 0.3,
+#'                 lagtime     = 50,
+#'                 mpp_prefix  = "mpp",
+#'                 Q           = 0.3)
+#'  clustering.mpp(microstates = "microstates",
+#'                 fe_prefix   = "freeEnergy",
+#'                 radius      = 0.3,
+#'                 lagtime     = 50,
+#'                 mpp_prefix  = "mpp",
+#'                 Qmin        = 0.1,
+#'                 Qstep       = 0.01,
+#'                 Qmax        = 1)
 #' @export
 clustering.mpp <- function(microstates, fe_prefix, radius, lagtime, mpp_prefix, Q=NULL, Qmin=0.01, Qstep=0.01, Qmax=1) {
 
+  if (!all(c(Q, Qmin, Qstep, Qmax) > 0) || !all(c(Q, Qmin, Qstep, Qmax) <= 1)) {
+    stop("Q, Qmin, Qstep, Qmax must all be within (0,1].")
+  }
   # append radius to free energy file prefix
   fe_fname <- paste(fe_prefix, format(radius, nsmall=6), sep="_")
 
@@ -444,7 +465,6 @@ clustering.coring <- function(traj, traj_cored, states, wsizes, wsize_default=NU
   run.cmd(get.binary("clustering"), args)
 
   unlink(win_fname)
-
 }
 
 
