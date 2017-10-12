@@ -58,7 +58,15 @@ run.cmd <- function(cmd, args, onError=NULL) {
     if (!is.null(onError)) {
       onError()
     }
-    stop(msg("noExec", paste(cmd, paste(args, collapse =" "))), call. = F)
+
+    msg <- msg("noExec", paste(cmd, paste(args, collapse =" ")))
+
+    if(!file.exists(cmd)) {
+      msg <- paste(msg,
+                   "Possibly incorrect path to binary. Adapt with set.binary().",
+                   sep="\n")
+    }
+    stop(msg, call. = F)
   }
   tryCatch(
     system2(cmd, args, stdout = TRUE, stderr = TRUE),
