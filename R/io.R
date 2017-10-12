@@ -212,7 +212,7 @@ read.cumFlucts <- function(vals) {
 #' @export
 read.populations <- function(pop_prefix, radii=NULL) {
 
-  dir        <- dirname(pop_prefix)
+  dir        <- normalizePath(dirname(pop_prefix))
   pop_prefix <- basename(pop_prefix)
 
   if (is.null(radii)) {
@@ -231,7 +231,9 @@ read.populations <- function(pop_prefix, radii=NULL) {
     data.frame,
     lapply(popfiles, function(fname){
       pops        <- data.frame(read.table(fname)[[1]])
-      names(pops) <- paste0("R", as.numeric(strsplit(fname, split="_")[[1]][-1]))
+      R           <- as.numeric(tail(strsplit(fname, split="_")[[1]], n=1))
+      names(pops) <- paste0("R", R)
+
       return(pops)
   }))
 }

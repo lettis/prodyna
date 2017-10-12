@@ -491,21 +491,28 @@ plt.stateTrajComparison <- function(traj1, traj2) {
 
 #' Plot sorted per-frame populations for given radii.
 #'
-#' @param pops Data frame, neighbourhood populations per frame where each column
-#'  corresponds to a particular neighbourhood radius.
+#' @param pops Character or data frame, prefix of population files or data frame
+#'  with neighbourhood populations per frame where each column  corresponds to a
+#'  particular neighbourhood radius.
 #' @param radii Numeric vector, selection of radii. If \code{NULL} (default),
 #' read all available population files.
 #' @param logy Logical, plot with logarithmic y-scale.
 #' @param select Numeric, plot only every n-th data point, i.e. for select=100,
 #'  the population of every 100-th frame is plotted.
 #'  A large value will improve performance significantly.
+#'  If \code{NULL} (default) select is chosen such that approx 1000 data points
+#'  are plotted.
 #' @import ggplot2
 #' @importFrom reshape2 melt
 #' @export
-plt.populations <- function(pops, radii=NULL, logy=TRUE, select=100) {
+plt.populations <- function(pops, radii=NULL, logy=TRUE, select=NULL) {
 
   if(is.character(pops)) {
     pops <- read.populations(pops, radii)
+  }
+
+  if(is.null(select)) {
+    select <- floor(nrow(pops)/1000)  # plot approx 1000 data points
   }
 
   for(i in colnames(pops)) {
