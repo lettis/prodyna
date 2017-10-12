@@ -8,6 +8,8 @@
 #'                          \code{arg} should give the function that produced
 #'                          the warning.
 #'   \item \code{noExec}  - Command could not be executed.
+#'   \item \code{format}  - File does not have the expected format.
+#'   \item \code{missingFile} - An input file does not exist.
 #' }
 #'
 #' @param type Character, type of warning/error
