@@ -13,7 +13,7 @@ Prodyna is a versatile software package for the analysis of protein dynamics dat
 
 The R statistical programming environment was chosen as host language because of its universal availability and the plethora of options for advanced statistical analysis and machine learning.
 
-Prodyna is free and open source software, published under the [simplified BSD license] (https://github.com/lettis/prodyna/blob/master/LICENSE).
+Prodyna is free and open source software, published under the [simplified BSD license](https://github.com/lettis/prodyna/blob/master/LICENSE).
 
 You can find all source code on [Github](https://github.com/lettis/prodyna).
 
@@ -96,6 +96,9 @@ Having defined proper _reaction coordinates_, further analysis methods like clus
 
 Currently, the construction of reaction coordinates and state models and the visualization of related observables is the focus of the prodyna functionality - and hence the focus of this tutorial.
 
+A more detailed theoretical background of the protein analysis procedure described in the following can be found
+in [*Sittel & Stock (2016), Robust density-based clustering to identify metastable conformational states of proteins*](http://www.moldyn.uni-freiburg.de/publications/papers/135-p.pdf). In addition, the [clustering tutorial](https://github.com/lettis/Clustering/blob/master/doc/tutorial/clustering_tutorial.pdf) may provide additional information.
+
 ## Contacts and distances
 
 TODO. The computation of contacts and distances is not yet implemented in prodyna.
@@ -105,10 +108,15 @@ TODO. The computation of contacts and distances is not yet implemented in prodyn
 Being a typical _folder_, i.e. a protein that constantly folds and unfolds, HP-35 is best described by the backbone dihedral angles, which encode the secondary structure. For a first assessment of the data, we will construct the dihedral angles with
 
 ```{r}
+prodyna::set.binary("gmx", "/usr/bin/gmx")
 prodyna::generate.dihedrals(ref  = "HP35_NLE.pdb", 
                             traj = "HP35_every100.xtc",
                             skipCA = c(1, 35))
 ```
+
+Here, the Gromacs software is used, so make sure the path to the `gmx` binary is set correctly.
+
+---
 
 This will produce two files
 
@@ -134,7 +142,7 @@ Review the Ramachandran plots (with complete dihedral angle pairs) of residues 2
 
 ```{r}
 for (residue in c(2,3)) {
-  show(prodyna::plt.ramachandran(residue, dihedrals="HP35_every100.xtc.dih"))
+  show(prodyna::plt.ramachandran(residue, dihedrals=dih))
 }
 ```
 
@@ -144,7 +152,7 @@ To reduce the dimensionality of the data set, we run a dPCA+ on the freshly gene
 
 ```{r}
 prodyna::set.binary("fastpca", "/usr/local/bin/fastpca")
-prodyna::run.dPCAplus("HP35_every100.xtc.dih")
+prodyna::run.dPCAplus("HP35_every100.xtc.dih", corr = T)
 
 ```
 
@@ -154,14 +162,14 @@ This will produces the following files:
  * `HP35_every100.xtc.dih.vec` contains the eigenvectors.
  * `HP35_every100.xtc.dih.cov` contains the covariance matrix. 
  * `HP35_every100.xtc.dih.proj` contains the projected data.
- * `HP35_every100.xtc.dih.stats` contains  mean values, sigmas and boundary shifts.
+ * `HP35_every100.xtc.dih.stats` contains mean values, sigmas and boundary shifts.
 
 --- 
 
 To check on the results, we plot on overview for the first ten principal components (PCs). This shows in the lower triangle the 2D projections of the PC pairs, their 1D projections on the diagonal, and the eigenvector contributions in the upper triangle.
 
 ```{r, fig.width = 5, fig.height = 5}
-prodyna::plt.pcaOverview("HP35_every100.xtc.dih", pcs=1:10)
+prodyna::plt.pcaOverview(coords="HP35_every100.xtc.dih", pcs=1:10)
 ```
 
 The projections suggest, that PCs higher than seven do not really show structure and probably encode thermal fluctuations only. Furthermore, PC six does not seem to be very interesting. Therefore, we perform dimensionality reduction by selecting PCs 1-5 and 7 as reaction coordinates.
@@ -169,7 +177,7 @@ The projections suggest, that PCs higher than seven do not really show structure
 ```{r}
 prodyna::generate.reactionCoordinates(coords  = "HP35_every100.xtc.dih.proj",
                                       columns = c(1:5, 7),
-                                      output  = "HP35_every100.xtc.dih.proj.1-5.7")
+                                      output  = "reaction_coords")
 ```
 
 This produces the file `HP35_every100.xtc.dih.proj.1-5.7` containing only the selected coordinates, as well as the file `HP35_every100.xtc.dih.proj.1-5.7.info` 
@@ -177,7 +185,7 @@ which stores which columns of which files were selected.
 
 The reduced coordinate set will from now on define our reaction coordinates.
 ```{r}
-rc <- "HP35_every100.xtc.dih.proj.1-5.7"  # reaction coordinates file
+rc <- "reaction_coords"  # reaction coordinates file
 ```
 
 
@@ -197,7 +205,7 @@ As a whole bunch of files are generated during the (geometric) clustering proces
 ```{r}
 dir.create("geomClust")
 prodyna::clustering.estimate.radii(rc         = rc,
-                                   radii      = c(0.2, 0.3, 0.4, 0.5, 0.6),
+                                   radii      = c(0.25, 0.3, 0.35, 0.4, 0.45),
                                    fe_prefix  = "geomClust/freeEnergy",
                                    pop_prefix = "geomClust/population")
 ```
@@ -208,14 +216,14 @@ Choosing a large radius will ensure good sampling. However, the population distr
 
 ```{r}
 pops <- prodyna::read.populations(pop_prefix = "geomClust/population", radii=NULL)
-prodyna::plt.populations(pops=pops, radii=NULL, logy=TRUE)
+prodyna::plt.populations(pops=pops, radii=NULL, logy=T, select = 10)
 
 ```
 
-Based on this plot we choose a radius of 0.3 which is now used to compute the neighbourhood per frame and store the result in a file _neighbours_.
+Based on this plot we choose a radius of 0.35 which is now used to compute the neighbourhood per frame and store the result in a file _neighbours_.
 
 ```{r}
-radius <- 0.3
+radius <- 0.35
 prodyna::clustering.compute.neighborhood(rc        = rc, 
                                          radius    = radius,
                                          fe_prefix = "geomClust/freeEnergy",
@@ -309,7 +317,7 @@ prodyna::clustering.wtDistributions(traj       = "dynamicClust/mpp_traj_0.300.da
 wtd <- prodyna::read.wtDistributions(wtd_prefix  = "dynamicClust/wtDist",
                                       states      = c(1,2,3),
                                       wsizes      = ws)
-prodyna::plt.wtDistributions(wtd, max_frame = 300)
+prodyna::plt.wtDistributions(wtd, max_frame = 300, logy=F)
 
 ```
 
@@ -320,6 +328,8 @@ prodyna::clustering.coring(traj       = "dynamicClust/mpp_traj_0.300.dat",
                            traj_cored = "dynamicClust/coredTrajectory",
                            states = c(1,2,3),
                            wsizes = c(10,10,5))
+
+prodyna::plt.stateTrajComparison("dynamicClust/mpp_traj_0.300.dat", "dynamicClust/coredTrajectory")
 ```
 
 ---
@@ -327,9 +337,19 @@ prodyna::clustering.coring(traj       = "dynamicClust/mpp_traj_0.300.dat",
 The cored state trajectory is approximately Markovian. The transition matrix of this system can be estimated from the trajectory.
 
 ```{r}
-T <- msm.transitionMatrix(traj = "dynamicClust/coredTrajectory",
-                          lag  = 1)
-simulated_trajectory <- msm.sim(T, 1, 100)
+T <- prodyna::msm.transitionMatrix(traj = "dynamicClust/coredTrajectory",
+                                   lag  = 1)
+simulated_trajectory <- prodyna::msm.sim(T, 1, 100)
 ```
 
+---
+
+The metastable states resulting from the clustering procedure can be described 
+by a *Ramacolor plot* which shows the color-coded dihedral angle content per 
+residue. 
+
+```{r}
+prodyna::plt.ramacolor(statetraj = "dynamicClust/coredTrajectory",
+                       dihedrals = "HP35_every100.xtc.dih")
+```
 
