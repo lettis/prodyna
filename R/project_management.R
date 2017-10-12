@@ -1,136 +1,83 @@
-
-#' Project cache
-#'
-#' Holds all project-related information.
-#' Automatically updated by generator functions.
-.project_cache <- new.env()
-
-#' get project information
-#'
-#' @export
-projectInfo <- function() {
-  if (exists("project",
-             envir=.project_cache,
-             inherits=FALSE)) {
-    get("project", envir=.project_cache)
-  } else {
-    warning(.warnings$no_init)
-    NULL
-  }
+# List files in several directories
+list.filesHelper <- function(dirs, p) {
+  l <- as.list(unlist(lapply(dirs, function(d) {list.files(d, pattern = p, full.names = T)})))
+  if (length(l) == 1 && length(l[[1]]) == 0)
+    return(NULL)
+  else
+    return(l)
 }
 
-## project file detection
+# List reference structure files (.pdb)
+.list.reference <- function(dirs) {
+  list.filesHelper(dirs, p = "*.pdb")
+}
 
-#' List reference structure files (.pdb)
-.list.reference <- function() {
-  list.files(get.fullPath(),
-             pattern = "*.pdb")
+# List trajectory files (.xtc)
+.list.traj <- function(dirs) {
+  list.filesHelper(dirs, p = "*.xtc$")
 }
-#' List trajectory files (.xtc)
-.list.traj <- function() {
-  list.files(get.fullPath(),
-             pattern = "*.xtc$")
+# List files with dihedral angles (.dih)
+.list.dihedrals <- function(dirs) {
+  list.filesHelper(dirs, p = "*.dih$")
 }
-#' List files with dihedral angles (.dih)
-.list.dihedrals <- function() {
-  list.files(get.fullPath(),
-             pattern = "*.dih$")
-}
-#' List generic PCA files (cov, proj, etc.)
-.list.PCA <- function(file_pattern) {
+
+# List generic PCA files (cov, proj, etc.)
+.list.PCA <- function(dirs, file_pattern) {
   PCA <- list()
   suffix <- c("proj", "cov", "vec", "val", "stats")
   suffix <- paste(rep(suffix, 2), c("", "n"), sep="")
-  for (s in suffix) {
-    PCA[[s]] <- list.files(get.fullPath(),
-                           pattern=paste(file_pattern,
-                                         ".",
-                                         s,
-                                         "$",
-                                         sep=""))
-  }
 
-  PCA
+  for (s in suffix) {
+    PCA[[s]] <- list.filesHelper(dirs,
+                                 p=paste(file_pattern, ".", s, "$", sep=""))
+  }
+  return(PCA)
 }
-#' List specifically dPCA+ related files
-.list.dPCAplus <- function() {
-  .list.PCA("*.dih")
+
+# List specifically dPCA+ related files
+.list.dPCAplus <- function(dirs) {
+  .list.PCA(dirs, "*.dih")
 }
-#' List C$_\alpha$ distance files
-.list.caDists <- function() {
-  list.files(get.fullPath(),
+
+# List C$_\alpha$ distance files
+.list.caDists <- function(dirs) {
+  list.files(dirs,
              pattern="*.dist_[[:digit:]]*_[[:digit:]]*$")
 }
-#' List specifically C$_\alpha$-distance PCA related files
-.list.caPCA <- function() {
-  ca_dist_files <- .list.caDists()
+
+# List specifically C$_\alpha$-distance PCA related files
+.list.caPCA <- function(dirs) {
+  ca_dist_files <- .list.caDists(dirs)
   caPCA <- list()
   for (f in ca_dist_files) {
     suffix <- strsplit(f, ".", fixed=TRUE)[[1]]
     suffix <- suffix[length(suffix)]
-    caPCA[[suffix]] <- .list.PCA(f)
+    caPCA[[suffix]] <- .list.PCA(dirs, f)
   }
-
-  caPCA
-}
-#' List files with filtered reaction coordinates
-.list.reactionCoords <- function() {
-  list.files(get.fullPath(),
-             pattern = "reaction_coords_[[:digit:]]+.coords$")
+  return(caPCA)
 }
 
-.check.projectPath <- function() {
-  if (exists("path", envir=.project_cache, inherits=FALSE)) {
-    path <- get("path", envir=.project_cache)
-  } else {
-    stop(.warnings$no_init)
-  }
-  path
+# List files with filtered reaction coordinates
+.list.reactionCoords <- function(dirs) {
+  list.filesHelper(dirs, p = "reaction_coords")
 }
 
-
-.check.filePath <- function(filename) {
-  filename_orig <- filename
-  if ( ! file.exists(filename)) {
-    filename <- get.fullPath(filename)
-  }
-  if ( ! file.exists(filename)) {
-    stop(paste("file",
-               filename_orig,
-               "does not exist; neither in given path, nor in project dir."))
-  }
-  filename
-}
-
-
-#' returns normalized path for files in project
-#' @param subpath Path inside project directory. Will be constructed to full path from parts if given as a vector. If empty string (default), simply returns to project directory itself.
-#' @export
-get.fullPath <- function(subpath="") {
-  project_path <- .check.projectPath()
-  normalizePath(gsub("//*",
-                     "/",
-                     paste(c(project_path, subpath),
-                           collapse="/")),
-                mustWork=FALSE)
-}
-
-.check.filesExist <- function(fnames) {
-  allFilesExist <- all(do.call(c, lapply(fnames,
-                                         function(fname) {
-                                           file.exists(fname)
-                                         })))
-  stopifnot(allFilesExist)
-}
-
-
-
-
-#' create a README file
+#' Create a README file.
 #'
-#' Creates a README file to describe all automatically
-#' generated files in the project path.
-.make.readme <- function() {
+#' Creates a README file to describe automatically generated files.
+#' Note that the name of the reaction coordinates files needs to contain the
+#' substring 'reaction_coords'.
+#'
+#' @param readme Character, name of the README file.
+#' @param dirs Character, vector of directories that store the files to be
+#'  listed in the README.
+#' @importFrom rmarkdown render
+#' @export
+#'
+make.readme <- function(readme  = "README", dirs) {
+
+  sapply(dirs, normalizePath, USE.NAMES = F)
+
   sec <- function(title, level=1) {
     separator <- paste(rep("\n", 1), collapse="")
     indicator <- paste(rep("#", level), collapse="")
@@ -140,12 +87,19 @@ get.fullPath <- function(subpath="") {
     paste(text)
   }
 
-  pd <- projectInfo()
+  pd <- list()
+  pd$ref <- .list.reference(dirs)
+  pd$traj <- .list.traj(dirs)
+  pd$dihedrals <- .list.dihedrals(dirs)
+  pd$dPCAplus <- .list.dPCAplus(dirs)
+  pd$caDists <- .list.caDists(dirs)
+  pd$caPCA <- .list.caPCA(dirs)
+  pd$reactionCoords <- .list.reactionCoords(dirs)
 
   proj_summary <- ""
 
   add_doc <- function(elem, doc) {
-    if ((! is.null(elem)) & (! length(elem) == 0)) {
+    if ((!is.null(elem)) && (!length(elem) == 0)) {
       proj_summary <<- c(proj_summary, doc)
     }
   }
@@ -179,13 +133,13 @@ get.fullPath <- function(subpath="") {
                                          pd$dPCAplus$valn,
                                          "\n\n**stats**",
                                          pd$dPCAplus$statsn))))
-  if ( ! is.null(pd$caDists) & length(pd$caDists) > 0) {
+  if (!is.null(pd$caDists) & length(pd$caDists) > 0) {
     proj_summary <- c(proj_summary, sec("C$_\\alpha$-distances"))
     for (d in pd$caDists) {
       add_doc(d, txt(d))
     }
   }
-  if ( ! is.null(pd$caPCA) & length(pd$caPCA) > 0) {
+  if (!is.null(pd$caPCA) & length(pd$caPCA) > 0) {
     proj_summary <- c(proj_summary, sec("C$_\\alpha$-PCA"))
     for (i in 1:length(pd$caPCA)) {
       d <- pd$caPCA[i]
@@ -218,57 +172,22 @@ get.fullPath <- function(subpath="") {
   if (length(pd$reactionCoords) > 0) {
     proj_summary <- c(proj_summary, sec("Reaction Coordinates"))
     lapply(pd$reactionCoords, function(fname) {
-      proj_summary <<- c(proj_summary,
-                         sec(fname, level="2"),
-                         txt(
-                           readLines(
-                             get.fullPath(
-                               paste(strsplit(fname, "\\.")[[1]][1],
-                                     "desc",
-                                     sep=".")))))
+      if(substr(fname, nchar(fname)-5+1, nchar(fname)) != ".info" ) {
+        proj_summary <<- c(proj_summary,
+                           sec(fname, level="2"),
+                           txt(
+                             readLines(
+                               paste(fname, "info", sep="."))))
+      }
     })
   }
 
-  readme_fname <- paste(get.fullPath(), "README.Rmd", sep="/")
   cat(paste(c(proj_summary, ""), sep="", collapse="\n"),
-      file=readme_fname)
+      file=readme)
   opts <- list()
   opts["toc"] <- TRUE
   sink("/dev/null")
-  suppressMessages(rmarkdown::render(readme_fname,
-                                     "pdf_document",
-                                     output_options = opts))
+  render(readme, "pdf_document", output_options = opts, quiet = T)
   sink()
 }
 
-#' update project information
-.update <- function() {
-  .check.projectPath()
-
-  project <- list()
-  project$ref <- .list.reference()
-  project$traj <- .list.traj()
-  project$dihedrals <- .list.dihedrals()
-  project$dPCAplus <- .list.dPCAplus()
-  project$caDists <- .list.caDists()
-  project$caPCA <- .list.caPCA()
-  project$reactionCoords <- .list.reactionCoords()
-
-  assign("project", project, envir=.project_cache)
-
-  .make.readme()
-}
-
-#' initialize project
-#'
-#' Switches to given path and initializes prodyna-project.
-#' Existing files are detected and any new files generated by
-#' prodyna will be created under this directory.
-#'
-#' @export
-init <- function(path=".") {
-  assign("path",
-         normalizePath(path),
-         envir=.project_cache)
-  .update()
-}
