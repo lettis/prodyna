@@ -32,7 +32,7 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
       file.exists(fname_dihedrals_info)) {
 
     dihInfo <- read.dihedrals.info(fname_dihedrals_info)
-    nRes <- dihInfo$nRes
+    nRes    <- dihInfo$nRes
     skipped <- dihInfo$skippedResnos
 
     # check if the same residuals should be skipped
@@ -43,6 +43,20 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 
       return(warning(msg("caching", arg="generate.dihedrals")))
     }
+  }
+
+  # if reference is .gro file, convert to .pdb first
+  if (substring(ref, nchar(ref)-2, nchar(ref)) == "gro") {
+
+    ref_pdb <- paste(substring(ref, 1, nchar(ref)-4), "pdb", sep=".")
+
+    run.cmd(cmd = get.binary("gmx"),
+            args = c("editconf",
+                     "-f",
+                     ref,
+                     "-o",
+                     ref_pdb))
+    ref <- ref_pdb
   }
 
   filter.backbone <- function(pdb) {
@@ -59,9 +73,11 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 
   nRes <- length(calpha_indices)
 
-  # default: remove first and last C_alpha
+
   if (is.null(skipCA)) {
-    skipCA <- c(1, nRes)
+    skipCA <- c(1, nRes)               # default: remove first and last C_alpha
+  } else {
+    skipCA <- skipCA[skipCA <= nRes]   # remove out of bound indices
   }
 
   # remove skipCA indices
@@ -136,12 +152,17 @@ generate.dihedrals <- function(ref, traj, skipCA=NULL, ignoreCache=FALSE) {
 #'   already exists (default: \code{FALSE}).
 #' @export
 generate.cossinTransform <- function(dihedrals, ignoreCache=FALSE) {
+
   output <- paste(dihedrals, "cossin", sep=".")
 
   if (!ignoreCache && file.exists(output)) {
     warning(msg("caching", arg="generate.cossinTransform"))
   } else {
-    streamed_cossin_transform(dihedrals, output)
+    if(!file.exists(dihedrals)) {
+      stop(msg("missingFile", dihedrals))
+    } else {
+      streamed_cossin_transform(dihedrals, output)
+    }
   }
 }
 
@@ -179,6 +200,9 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
   if (!ignoreCache && outputFilesExist) {
     warning(msg("caching", "run.PCA"))
   } else {
+    if(!file.exists(coords)) {
+      stop(msg("missingFile", coords))
+    }
     # setup 'fastpca' parameters
     params <- c("-f", "-p", "-v", "-l", "-c", "-s")
     params <- c(rbind(params, c(coords, results)))
@@ -186,13 +210,13 @@ run.PCA <- function(coords, corr=FALSE, ignoreCache=FALSE, additionalParams=NULL
       params <- c(params, "-N")
     }
     params <- c(params, additionalParams)
-    message("Running 'fastpca'..")
+    message("Running 'fastpca'... ", appendLF=F)
 
     run.cmd(get.binary("fastpca"),
             args    = params,
             onError = function(){unlink(results)})
 
-    message(".. done.")
+    message("done.")
   }
 }
 
@@ -225,101 +249,124 @@ run.dPCAplus <- function(dihedrals, corr=FALSE, ignoreCache=FALSE) {
 #' @param residue.maxdist (default:\code{NULL})
 #' @param ignoreCache Logical, if \code{TRUE} recompute even if output file
 #'   already exists (default: \code{FALSE}).
+#' @importFrom bio3d read.pdb
 #' @export
 generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=NULL, ignoreCache=FALSE) {
 
-  pdb <- bio3d::read.pdb(ref)
+  pdb <- read.pdb(ref)
   calpha_ndx <- pdb$atom$eleno[pdb$atom$elety == "CA"]
   n_res <- length(calpha_ndx)
-  res_ndx <- 1:n_res
 
   if (is.null(residue.maxdist)) {
     residue.maxdist <- n_res
   }
-  # TODO: more descriptive name?
-  fname_ca_dists <- paste(traj, "caDist", residue.mindist, residue.maxdist, sep=".")
 
-  if (!ignoreCache && file.exists(fname_ca_dists)) {
-    warning(msg("caching", "generate.caDistances"))
+  fname_ca_dists <- paste(traj, "caDist", sep=".")
+  fname_ca_dists_info <- paste(fname_ca_dists, "info", sep=".")
 
-  } else {
-    ca_comb  <- combn(calpha_ndx, 2)
-    ca_pairs <- do.call("rbind",
-                        Filter(Negate(is.null),
-                               lapply(1:ncol(ca_comb), function(i) {
-                                 res1 <- res_ndx[calpha_ndx == ca_comb[1,i]]
-                                 res2 <- res_ndx[calpha_ndx == ca_comb[2,i]]
-                                 pair <- NULL
-                                 if (res1 < res2) {
-                                   d_res <- res2-res1
-                                   if (residue.mindist <= d_res && d_res <= residue.maxdist) {
-                                     pair <- c(ca_comb[1,i], ca_comb[2,i])
-                                   }
-                                 }
-                                 pair
-                               })))
+  # check if cached files exist
+  if (!ignoreCache &&
+      file.exists(fname_ca_dists) &&
+      file.exists(fname_ca_dists_info)) {
 
-    fname_ndx <- paste(fname_ca_dists, ".ndx", sep="")
+    caDistInfo <- read.caDistances.info(fname_ca_dists_info)
 
-    # write new index file with distance pairs
-    unlink(fname_ndx)
-    for (i in 1:nrow(ca_pairs)) {
-      write(paste("[ Dist",
-                  i,
-                  " ]\n",
-                  ca_pairs[i,1],
-                  " ",
-                  ca_pairs[i,2],
-                  sep=""),
-            file=fname_ndx,
-            append=TRUE)
+    # check if parameters are the same
+    if (caDistInfo$mindist == residue.mindist &&
+        caDistInfo$maxdist == residue.maxdist) {
+
+      return(warning(msg("caching", arg="generate.caDistances")))
     }
-
-    onError <- function() {unlink(c(fname_ndx,
-                                    fname_ca_dists,
-                                    "dist.xvg"))}
-    # compute distances with gromacs
-    run.cmd(get.binary("gmx"), c("distance",
-                                 "-f",
-                                 traj,
-                                 "-n",
-                                 fname_ndx,
-                                 "-oall",
-                                 "-select",
-                                 seq(0, (nrow(ca_pairs)-1))),
-            onError=onError)
-
-    # reformat data
-    run.cmds(paste("grep -v \"#\" dist.xvg | grep -v \"@\" ",
-                 "| ",
-                 get.binary("awk"),
-                 " '{for(i=2; i <=NF; ++i)",
-                 "{printf(\" %s\", $i)} printf(\"\\n\")}'",
-                 " > ",
-                 fname_ca_dists,
-                 sep=""),
-             onError=onError)
-
-    # remove intermediate file
-    unlink("dist.xvg")
   }
+
+  # filter all index pairs (i,j), i, j in {1,.., n_res} with i < j
+  filter <- function(d_res) {residue.mindist <= d_res && d_res <= residue.maxdist}
+
+  ca_pairs <- Reduce(
+               function(l1, i) {
+                 l2 <-Reduce(function(l,j) {
+                               d_res <- j-i
+                               if (filter(d_res)) {
+                                 return(c(l, list(c(calpha_ndx[i], calpha_ndx[j]))))
+                               } else {
+                                 return(l)}
+                                },
+                             x    = (i+1):n_res,
+                             init = list())
+                 return(c(l1, l2))},
+               x    = 1:(n_res-1),
+               init = list())
+
+  ca_pairs <- do.call("rbind", ca_pairs)
+
+  fname_ndx <- paste(fname_ca_dists, ".ndx", sep="")
+
+  # write new index file with distance pairs
+  unlink(fname_ndx)
+  for (i in 1:nrow(ca_pairs)) {
+    write(paste("[ Dist",
+                i,
+                " ]\n",
+                ca_pairs[i,1],
+                " ",
+                ca_pairs[i,2],
+                sep=""),
+          file=fname_ndx,
+          append=TRUE)
+  }
+
+  onError <- function() {unlink(c(fname_ndx,
+                                  fname_ca_dists,
+                                  fname_ca_dists_info,
+                                  "dist.xvg"))}
+  # compute distances with gromacs
+  run.cmd(get.binary("gmx"), c("distance",
+                               "-f",
+                               traj,
+                               "-n",
+                               fname_ndx,
+                               "-oall",
+                               "-select",
+                               seq(0, (nrow(ca_pairs)-1))),
+          onError=onError)
+
+  # reformat data
+  run.cmds(paste("grep -v \"#\" dist.xvg | grep -v \"@\" ",
+               "| ",
+               get.binary("awk"),
+               " '{for(i=2; i <=NF; ++i)",
+               "{printf(\" %s\", $i)} printf(\"\\n\")}'",
+               " > ",
+               fname_ca_dists,
+               sep=""),
+           onError=onError)
+
+  # remove intermediate file
+  unlink("dist.xvg")
+
+  write.caDistances.info(ref     = ref,
+                         traj    = traj,
+                         mindist = residue.mindist,
+                         maxdist = residue.maxdist,
+                         fname   = fname_ca_dists_info)
+
 }
 
 #' PCA on C\eqn{\alpha} distance.
 #'
 #' Run PCA on a trajectory of C\eqn{\alpha} distances.
+#'
 #' @param caDists Character, name of file containing the C\eqn{\alpha} distances.
-#' @param residue.mindist (default: 4)
-#' @param residue.maxdist (default:\code{NULL})
 #' @param corr Logical, if \code{TRUE} use correlation instead of covariance.
 #'   Effectively whitens the data before doing the analysis (default:
 #'   \code{FALSE}).
 #' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
 #'   already exist (default: \code{FALSE}).
 #' @export
-run.caPCA <- function(caDists, residue.mindist=4, residue.maxdist=NULL, corr=FALSE, ignoreCache=FALSE) {
+run.caPCA <- function(caDists, corr=FALSE, ignoreCache=FALSE) {
 
   results <- c("proj", "vec", "val", "cov", "stats")
+
   if (corr) {
     results <- paste(results, "n", sep="")
   }
@@ -339,7 +386,9 @@ run.caPCA <- function(caDists, residue.mindist=4, residue.maxdist=NULL, corr=FAL
     }
     # run PCA
     message("Running 'fastpca'..")
-    run.cmd(get.binary("fastpca"), args=params)
+    run.cmd(cmd     = get.binary("fastpca"),
+            args    = params,
+            onError = function(){unlink(results)})
     message(".. done.")
   }
 

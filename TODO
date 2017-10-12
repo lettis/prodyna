@@ -1,25 +1,15 @@
 
+-
 -------------------------------------------------------------------------------
 reaction_coords.R
 -------------------------------------------------------------------------------
 
 generate.dihedrals
-- write .dih.info file storing skipped Ca indices
-- compare skipped Ca indices before caching
-- delete all intermediate/output files in case of an error
-- TODO: intermediate files are created in working directory, not in output dir
-
 generate.cossinTransform
-
 run.PCA
-- delete output files in case of an error
-
 run.dPCAplus
-
 generate.caDistances
-
 run.caPCA
-- same as run.PCA, should be deleted
 
 generate.reactionCoordinates
 generate.filteredCoordinates
@@ -47,11 +37,6 @@ clustering.densityNetwork
 clustering.microstates
 clustering.microstates.renamed
 clustering.get.pops
-
-TODO:
-- description sections
-- min, max, step for clustering.screening, clustering.densityNetwork
-- clustering.microstates: more descritpive name for output file?
 
 -------------------------------------------------------------------------------
 msm.R
@@ -86,9 +71,6 @@ plt.stateTrajComparison
 plt.pops
 plt.mppNetwork
 
-TODO: plotting of pops must get more performant, e.g. by using
-  histograms with number of bins say 10% of nrow(data).
-
 -------------------------------------------------------------------------------
 ext_binaries.R
 -------------------------------------------------------------------------------
@@ -105,9 +87,6 @@ stats.R
 -------------------------------------------------------------------------------
 
 stats.autocor
-
-- incorrectly(?) assumes header in coordinates file
-- type argument not used
 
 -------------------------------------------------------------------------------
 vmd_interface.R
@@ -131,6 +110,4 @@ streamed_cossin_transform
 -------------------------------------------------------------------------------
 project_managment.R
 -------------------------------------------------------------------------------
-
-TODO: keep make.readme
 

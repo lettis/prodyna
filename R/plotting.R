@@ -1,64 +1,61 @@
-
-
-#' \eq{-\log(x)} transformation.
+#' Negative Logarithm.
 #'
-#' Transform \eq{x} to \eq{-\log(x)} for plotting.
+#' Transform \eqn{x} to \eqn{-log(x)} for plotting.
 #'
-#' @param base Numeric, base to which the logarithm is computed.
-.reverselog_trans <- function(base = exp(1)) {
+#' @param base Numeric, base to which the logarithm is computed
+#'  (default: \eqn{e})
+#' @importFrom scales trans_new log_breaks
+reverselog_trans <- function(base = exp(1)) {
   trans <- function(x) -log(x, base)
-  inv <- function(x) base^(-x)
-  scales::trans_new(paste0("reverselog-",
-                           format(base)),
-                    trans,
-                    inv,
-                    scales::log_breaks(base = base),
-                    domain = c(1e-100, Inf))
+  inv   <- function(x) base^(-x)
+  trans_new(paste0("reverselog-", format(base)),
+            trans,
+            inv,
+            log_breaks(base = base),
+            domain = c(1e-100, Inf))
 }
 
 #' Ramachandran plot.
 #'
 #' Plot the distribution of \eqn{\phi} and \eqn{\psi} angles for a given residue.
 #'
-#' If \code{dihedrals} is a .dih file and \code{dihedralsInfo} is \code{NULL}
-#' then the .dih.info file is assumed to be named <dihedrals>.info
-#'
 #' @param resno Numeric, residue number.
 #' @param dihedrals Character or data.frame, name of the .dih file or data.frame
 #'   containing the dihedral angles.
-#' @param dihedralsInfo Character, name of the .dih.info file. This needs to be
-#'   set only if \code{dihedrals} is not a data frame.
 #' @param reslabel Character, label of the residue (to be used in the title).
 #' @return ggplot object
 #' @import ggplot2
 #' @export
-plt.ramachandran <- function(resno, dihedrals, dihedralsInfo=NULL, reslabel=NULL) {
+plt.ramachandran <- function(resno, dihedrals, reslabel=NULL) {
 
   if (is.character(dihedrals)) {
-    if(is.null(dihedralsInfo)) {
-      dihedralsInfo <- paste(dihedrals, ".info", sep="")
-    }
-    dih <- read.dihedrals(dihedrals, dihedralsInfo, resno)
+    dih <- read.dihedrals(dihedrals     = dihedrals,
+                          resnos        = resno,
+                          dihedralsInfo = NULL)
   } else {
     dih <- dihedrals
   }
+
+  if (is.null(reslabel)) {
+    title <- paste("residue", resno)
+  } else {
+    title <- paste("residue", reslabel)
+  }
+
   phi <- dih[[paste("phi", resno, sep="")]]
   psi <- dih[[paste("psi", resno, sep="")]]
 
   p <- ggplot(data.frame(phi, psi)) +
        stat_bin2d(aes(x=phi, y=psi), bins=180) +
-       scale_fill_distiller(palette="YlGnBu",
-                            trans=.reverselog_trans()) +
+       scale_fill_distiller(palette="YlGnBu", trans=reverselog_trans()) +
        xlim(-180,180) +
        ylim(-180,180) +
        theme_bw() +
-       theme(legend.position = "none")
+       theme(legend.position = "none") +
+       xlab(expression(phi)) +
+       ylab(expression(psi)) +
+       ggtitle(title)
 
-  if (is.null(reslabel)) {
-    p <- p + ggtitle(paste("residue", resno))
-  } else {
-    p <- p + ggtitle(paste("residue", reslabel))
-  }
   return(p)
 }
 
@@ -77,6 +74,7 @@ plt.ramachandran <- function(resno, dihedrals, dihedralsInfo=NULL, reslabel=NULL
 #' @import ggplot2
 #' @importFrom plotly ggplotly config layout
 #' @importFrom magrittr "%>%"
+#' @importFrom reshape2 melt
 #' @export
 plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   if (is.character(x)) {
@@ -94,7 +92,7 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
     clr_palette <- "YlGnBu"
   }
   # plot rows along y, columns along x
-  p <- ggplot(reshape2::melt(M)) +
+  p <- ggplot(melt(M)) +
           geom_raster(aes(y=Var1, x=Var2, fill=value)) +
           scale_y_reverse(breaks=1:nrow(M), expand=c(0,0)) +
           scale_x_continuous(breaks=1:ncol(M), expand=c(0,0)) +
@@ -122,106 +120,86 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
 #'
 #' Plot 2d-proj, 1d-proj and eigenvector content for given PCA.
 #'
-#' @param fname Character, filename of original coordinates.
-#' @param pcs Numerical vector, PC indices.
+#' @param coords Character, name of coordinates file for which PCA has been
+#'  performed.
+#' @param pcs Numeric vector, PC indices.
 #' @param corr Logical, if \code{TRUE} use correlation-based PCA (default:
 #'   \code{FALSE}).
 #' @import ggplot2
 #' @importFrom data.table fread
 #' @importFrom GGally ggpairs putPlot
 #' @export
-plt.pcaOverview <- function(fname, pcs, corr=FALSE) {
+plt.pcaOverview <- function(coords, pcs, corr=FALSE) {
   if (corr) {
-    proj <- fread(sprintf("%s.projn", fname),
-                  select=pcs,
-                  verbose=FALSE,
-                  showProgress=FALSE)
-    vecs <- fread(sprintf("%s.vecn", fname),
-                  select=pcs,
-                  verbose=FALSE,
-                  showProgress=FALSE)
+    fname_proj <- sprintf("%s.projn", coords)
+    fname_vecs <- sprintf("%s.vecn", coords)
   } else {
-    proj <- fread(sprintf("%s.proj", fname),
-                  select=pcs,
-                  verbose=FALSE,
-                  showProgress=FALSE)
-    vecs <- fread(sprintf("%s.vec", fname),
-                  select=pcs,
-                  verbose=FALSE,
-                  showProgress=FALSE)
+    fname_proj <- sprintf("%s.proj", coords)
+    fname_vecs <- sprintf("%s.vec", coords)
   }
+
+  proj <- fread(fname_proj, select=pcs, verbose=FALSE, showProgress=FALSE)
+  vecs <- fread(fname_vecs, select=pcs, verbose=FALSE, showProgress=FALSE)
+
   vec_names <- names(vecs)
-  n_dih <- dim(vecs)[1]
+  n_dih     <- dim(vecs)[1]
   vecs <- do.call("rbind",
                   lapply(vec_names, function(n) {
                     data.frame(dih=vecs[[n]], v=n, ndx=1:n_dih)
                   }))
-  plt <- ggpairs(proj,
-                 lower="blank",
-                 upper="blank")
+  plt <- ggpairs(proj, lower="blank", upper="blank")
   seq <- 1:ncol(proj)
+
   for (x in seq){
     for (y in seq) {
-      if (x == y) {
-        # diag
-        plt <- putPlot(plt,
-                       ggplot(proj,
-                              aes_string(x=names(proj)[x])) +
-                         stat_bin(bins=200,
-                                  aes(y=-log(..density..)),
-                                  geom="line",
-                                  position="identity"),
-                       x,
-                       x)
-      }
+
       if (x < y) {
         # lower
-        plt <- putPlot(plt,
-                       ggplot(proj,
-                              aes_string(x=names(proj)[x],
-                                         y=names(proj)[y])) +
-                         stat_bin2d(bins=200) +
-                         scale_fill_distiller(palette="YlGnBu",
-                                              trans=.reverselog_trans()),
-                       y,
-                       x)
+        subplt <- ggplot(proj, aes_string(x=names(proj)[x],
+                                          y=names(proj)[y])) +
+                  stat_bin2d(bins=200) +
+                  scale_fill_distiller(palette="YlGnBu",
+                                       trans=reverselog_trans())
       } else if (y < x) {
         # upper
-        plt <- putPlot(plt,
-                       ggplot(vecs[vecs$v==vec_names[x] | vecs$v==vec_names[y],],
-                              aes(x=ndx,
-                                  y=abs(dih),
-                                  group=v,
-                                  color=v)) +
-                         geom_line(size=2),
-                       y,
-                       x)
+        subplt <- ggplot(vecs[vecs$v==vec_names[x] | vecs$v==vec_names[y],],
+                      aes(x=ndx, y=abs(dih), group=v, color=v)) +
+                  geom_line(size=2)
+      } else {
+        # diag
+        subplt <- ggplot(proj, aes_string(x=names(proj)[x])) +
+                  stat_bin(bins=200,
+                           aes(y=-log(..density..)),
+                           geom="line",
+                           position="identity")
       }
+    plt <- putPlot(plt, subplt, y, x)
     }
   }
-  plt
+  return(plt)
 }
 
 #' Plot a 2d-projection for a given PCA.
 #'
 #' plots a 2d free energy landscape (in kT) for the given PCA projection.
-#' @param pca Character, filename of the .proj file containing the PCs.
-#' @param dim1 Numeric, index of PC to be used as first dimension
-#'  (default: 1).
-#' @param dim2 Numeric, index of PC to be used as second dimension
-#'  (default: 2).
+#' @param projected Character or data.frame, filename of the .proj file or data
+#'  frame containing the projected data.
+#' @param dim1 Numeric, index of PC to be used as first dimension, i.e. column
+#'  to select from file or data frame (default: 1).
+#' @param dim2 Numeric, index of PC to be used as second dimension, i.e. column
+#'  to select from file or data frame (default: 2).
 #' @param diverge Logical, should a diverging color scale be used?
 #'  (default: \code{FALSE})
 #' @import ggplot2
 #' @importFrom data.table fread
 #' @export
-plt.pcaProj <- function(pca, dim1=1, dim2=2, diverge=FALSE) {
-
-  if (is.data.frame(pca)) {
-    pcs <- pca
+plt.pcaProj <- function(projected, dim1=1, dim2=2, diverge=FALSE) {
+  if (is.character(projected)) {
+    pcs <- fread(projected, select=c(dim1, dim2), verbose=F, showProgress=F)
   } else {
-    pcs <- fread(pca, select=c(dim1, dim2), verbose=FALSE, showProgress=FALSE)
+    pcs <- projected[, c(dim1, dim2)]
   }
+
   colnames(pcs) <- c("x", "y")
 
   if (diverge) {
@@ -237,8 +215,8 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, diverge=FALSE) {
                aes(x=x,
                    y=y,
                    fill=-log(..count../max(..count..)))) +
-    scale_fill_distiller(palette=color_palette,
-                         guide=guide_legend(title="[kT]",
+    scale_fill_distiller(palette = color_palette,
+                         guide   = guide_colourbar(title="[kT]",
                                             reverse=TRUE)) +
     xlab(paste("PC", dim1)) +
     ylab(paste("PC", dim2)) +
@@ -248,47 +226,56 @@ plt.pcaProj <- function(pca, dim1=1, dim2=2, diverge=FALSE) {
 #' Plot cumulative fluctuations.
 #'
 #' Takes all available PCAs and plots their cumulative fluctuations in a single plot.
-#' @param cfs_filenames Character vector, names of .val/.valn files
-#' @param cfs_labels Character vector, PCA method descriptions corresponding to the
-#'  files given by \code{cfs_filenames}.
+#' @param eigenvals Character vector, names of .val/.valn files holding the
+#'  eigenvalues.
+#' @param labels Character vector, PCA method descriptions corresponding to the
+#'  respective files in \code{eigenvals}.
 #' @import ggplot2
+#' @importFrom data.table fread
 #' @export
-plt.cumFlucts <- function(cfs_filenames, cfs_labels) {
+plt.cumFlucts <- function(eigenvals, labels) {
 
-  max_length <- 0
-  cfs <- list()
-  cfs_labels_selected <- list()
-  for (i in 1:length(cfs_labels)) {
-    f <- cfs_filenames[i]
+  cfs        <- list()
 
-    if (file.exists(f) && !dir.exists(f)) {
-      cf <- data.table::fread(f, verbose=FALSE, showProgress=FALSE)$V1
-      cf <- cumsum(cf/sum(cf))
-      max_length <- max(max_length, length(cf))
-      cfs[[i]] <- data.frame(1:max_length, cf, cfs_labels[[i]])
-      colnames(cfs[[i]]) <- c("PC", "cumfluct", "method")
+  if(is.character(eigenvals) && !all(file.exists(eigenvals))) {
+    stop(msg("missingFile", eigenvals))
+  }
+
+  for (i in 1:length(labels)) {
+
+    if(is.character(eigenvals)){
+      cf <- fread(eigenvals[i], verbose=FALSE, showProgress=FALSE)$V1
+    } else {
+      cf <- eigenvals[[i]]
     }
+    cf <- cumsum(cf/sum(cf))
+
+    cfs[[i]]   <- data.frame(1:length(cf), cf, labels[[i]])
+    colnames(cfs[[i]]) <- c("PC", "cumfluct", "method")
   }
-  for (i in length(cfs)) {
-    cfs[[i]] <- cfs[[i]][1:max_length,]
-  }
+
   df <- do.call("rbind", cfs)
 
-  # plot result
   ggplot(df) +
-    geom_line(aes(x=PC, y=cumfluct, color=method),
-              size=2) +
-    scale_x_discrete(limits=1:max_length) +
-    #xlim(1, max_length) +
-    theme_bw()
+    geom_line(aes(x=PC, y=cumfluct, color=method), size=1) +
+    theme_bw() +
+    ylab("cumulative fluctuation")
 }
 
-#' Plot autocorrelation of observables.
+#' Plot autocorrelation.
 #'
-#' @param coords Character, filename of coordinates or list of filenames.
+#' For a single coordinates file the autocorrelation as a function of time lag
+#' is plotted for each column.
+#' For multiple coordinate files the mean autocorrelation and variance is
+#' plotted (for each column the mean/variance is compute over all files).
+#'
+#' @param coords Character or (list of) data.frame(s), vector of coordinate
+#' filenames or a (list of) data frame(s).
+#'  If multiple filenames/data frames are given, mean autocorrelation and
+#'  variance are plotted.
 #' @param lag.max Numeric, maximal lagtime. If < 1 (default: 0.25), this is
 #'  interpreted as a ratio to the total length. Otherwise the lagtime is
-#'  assumed to be given in number of timesteps.
+#'  assumed to be given in number of timesteps/frames.
 #' @param columns Numeric vector, column indices of observables to compute
 #'  ACF for.
 #' @param circular Logical, should ACF be computed for circular variables,
@@ -296,109 +283,121 @@ plt.cumFlucts <- function(cfs_filenames, cfs_labels) {
 #' @param dt Numeric, timestep in [ps]. If not \code{NULL}, the time axis
 #'  will be scaled accordingly. Otherwise (default) time is expressed in the
 #'  number of timesteps.
+#' @param logy Logical, plot with logarithmic y-scale.
 #' @import ggplot2
+#' @importFrom reshape2 melt
+#' @importFrom dplyr left_join mutate
 #' @export
-plt.autocor <- function(coords, lag.max=0.25, columns, circular=FALSE, dt=NULL) {
-  compute_acf <- function(fname) {
-    stats.autocor(fname,
+plt.autocor <- function(coords, columns=NULL, lag.max=0.25, circular=F, dt=NULL, logy=F) {
+
+  compute_acf <- function(coord) {
+    stats.autocor(coord,
                   columns = columns,
                   lag.max = lag.max,
                   circular = circular)
   }
   # compute ACF data (for ensemble: mean and sd)
-  if (is.list(coords)) {
-    n_files <- length(coords)
-    acf_tmp <- lapply(coords, function(fname) {
-      do.call("rbind", compute_acf(fname))
-    })
-    # compute mean
-    acf_mean <- acf_tmp[[1]]
-    for (i in 2:n_files) {
-      acf_mean <- acf_mean + acf_tmp[[i]]
-    }
-    acf_mean <- acf_mean / n_files
-    # compute sigma
-    acf_sigma <- 0 * acf_mean
-    for (i in 1:n_files) {
-      acf_sigma <- (acf_mean-acf_sigma)^2
-    }
-    acf_sigma <- sqrt(acf_sigma/(n_files-1))
-    # reshape and set column names
-    acf_mean <- data.frame(t(acf_mean))
-    acf_sigma <- data.frame(t(acf_sigma))
-    colnames(acf_sigma) <- columns
+  if (is.data.frame(coords)) {
+    n_coords <- 1
   } else {
-    acf_mean <- compute_acf(coords)
+    n_coords <- length(coords)   # might be 1 as well
+  }
+
+  if (n_coords > 1) {
+
+    acf_tmp <- lapply(coords, compute_acf)
+    # compute mean
+    acf_mean <- Reduce('+', acf_tmp)
+    acf_mean <- acf_mean/n_coords
+    # compute sigma
+    acf_sigma <- Reduce('+', lapply(acf_tmp, function(acf) {(acf-acf_mean)^2}))
+    acf_sigma <- sqrt(acf_sigma/(n_coords-1))
+
+  } else {
+    acf_mean  <- compute_acf(coords)
     acf_sigma <- NULL
   }
   # construct time axis
   n <- length(acf_mean[[1]])
   if (is.null(dt)) {
     timeline <-  0:(n-1)
-    x_lbl <- "frame"
+    x_lbl    <- "time lag in frames"
   } else {
     timeline <- 0:(n-1) * dt
-    x_lbl <- "time [ps]"
+    x_lbl    <- "time lag in ps"
+  }
+
+  if(is.null(columns)) {
+    columns <- 1:ncol(acf_mean)
   }
   # data aggregation
   acf_mean <- data.frame(t=timeline, acf_mean)
-  colnames(acf_mean) <- c("t", columns)
-  acf_mean <- melt(acf_mean,
-                   id.vars=c("t"),
-                   value.name="mu")
+  names(acf_mean) <- c("t", columns)
+
+  acf_mean <- melt(acf_mean, id.vars=c("t"), value.name="mu")
+
   if (is.null(acf_sigma)) {
     acf_data <- acf_mean
   } else {
-    acf_sigma <- data.frame(t=timeline, acf_sigma)
+    acf_sigma           <- data.frame(t=timeline, acf_sigma)
     colnames(acf_sigma) <- c("t", columns)
-    acf_sigma <- melt(acf_sigma,
-                      id.vars=c("t"),
-                      value.name="sigma")
-    acf_data <- dplyr::left_join(acf_mean, acf_sigma, by=c("t", "variable"))
-    acf_data <- dplyr::mutate(acf_data,
-                              ymin=sapply(mu-sigma, function(x) {max(0.1, x)}),
-                              ymax=sapply(mu+sigma, function(x) {max(0.1, x)}))
+
+    acf_sigma <- melt(acf_sigma, id.vars=c("t"), value.name="sigma")
+
+    acf_data <- left_join(acf_mean, acf_sigma, by=c("t", "variable"))
+    acf_data <- mutate(acf_data,
+                       ymin = sapply(mu-sigma, function(x) {x}),
+                       ymax = sapply(mu+sigma, function(x) {x}))
   }
 
   if (is.null(acf_sigma)) {
-    p <- ggplot(acf_data) +
-      geom_line(aes(x=t, y=mu, color=variable))
+    p <- ggplot(acf_data) + geom_line(aes(x=t, y=mu, color=variable))
   } else {
     p <- ggplot(acf_data, aes(t)) +
-      geom_ribbon(aes(ymin=ymin,
-                      ymax=ymax,
-                      fill=variable), alpha=0.2) +
+      geom_ribbon(aes(ymin=ymin, ymax=ymax, fill=variable), alpha=0.2) +
       geom_line(aes(y=mu, color=variable))
   }
-  p <- p +
-    scale_y_log10(limits=c(0.1, 1)) +
-    xlab(x_lbl) +
-    ylab("ACF") +
-    theme_bw() +
-    theme(legend.title = element_blank())
+  p <- p +  xlab(x_lbl) +
+            ylab("ACF") +
+            theme_bw() +
+            theme(legend.title = element_blank())
 
-  p
+
+  if (logy) {
+    p <- p + scale_y_log10(limits=c(0.01, 1))
+  }
+
+  return(p)
 }
 
 #' Ramacolor plots of state geometries.
 #'
-#' @param statetraj Character, filename of state trajectory file.
-#' @param states Numeric vector, indices of states to be plotted.
-#'  If \code{NULL} (default) all states are selected.
-#' @param dihedrals Character, filename of the .dih file specifying
-#'  dihedral angles.
+#' Color-coded dihedral content per state and residue.
+#'
+#' TODO: all residues are read from file and indexed 1:n_residues
+#'
+#' @param statetraj Character or data frame, filename of state trajectory file
+#'  or data frame holding the state trajectory.#' .
+#' @param dihedrals Character or data frame, filename of the .dih file or data
+#'  frame holding dihedral angles.
 #' @import ggplot2
+#' @importFrom data.table fread
 #' @export
-plt.ramacolor <- function(statetraj, states=NULL, dihedrals) {
-  dih <- data.table::fread(dihedrals,
-                           verbose = FALSE,
-                           showProgress = FALSE)
-  traj <- data.table::fread(statetraj,
-                            verbose = FALSE,
-                            showProgress = FALSE)[[1]]
-  if (is.null(states)) {
-    states <- sort(unique(traj))
+plt.ramacolor <- function(statetraj, dihedrals) {
+
+  if (is.character(statetraj)) {
+    traj <- factor(fread(statetraj, verbose = F, showProgress = F)[[1]])
+  } else {
+    traj <- statetraj
   }
+
+  if (is.character(dihedrals)) {
+    dih  <- fread(dihedrals, verbose = F, showProgress = F)
+  } else {
+    dih <- dihedrals
+  }
+
+  states     <- levels(traj)
   n_residues <- ncol(dih)/2
 
   # construct Ramacolor dataframe
@@ -413,12 +412,12 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals) {
   }))
 
   ggplot(rc_data) +
-    geom_raster(aes(x=state, y=ires, fill=rgb(r, g, b)), hjust=0) +
+    geom_raster(aes(x=state, y=ires, fill=rgb(r, g, b))) +
     scale_fill_identity() +
+    scale_x_discrete(labels = states, breaks = states, expand = c(0,0)) +
+    scale_y_continuous(expand = c(0,0)) +
     xlab("state") +
-    ylab("residue") +
-    xlim(1, length(states)) +
-    theme_bw()
+    ylab("residue")
 }
 
 #' Plot state trajectory comparison.
@@ -432,22 +431,26 @@ plt.ramacolor <- function(statetraj, states=NULL, dihedrals) {
 #'              a filename pointing to the trajectory.
 #' @param traj2 Either a vector encoding second state trajectory or
 #'              a filename pointing to the trajectory.
+#' @importFrom data.table fread
+#' @importFrom circlize chordDiagram circos.par circos.clear
 #' @export
 plt.stateTrajComparison <- function(traj1, traj2) {
   check_traj <- function(traj) {
     if (is.character(traj)) {
-      traj <- data.table::fread(traj,
-                                verbose=FALSE,
-                                showProgress=FALSE)[[1]]
+      traj <- fread(traj, verbose=FALSE, showProgress=FALSE)[[1]]
+    } else {
+      traj
     }
-    traj
   }
   traj1 <- check_traj(traj1)
   traj2 <- check_traj(traj2)
+
   states <- sort(unique(c(traj1, traj2)))
+
   n_states <- length(states)
   overlap <- matrix(nrow=n_states, ncol=n_states)
   idx <- seq(1, n_states)
+
   for (i in idx) {
     state_is_i <- traj2[(traj1==states[i])]
     for (j in idx) {
@@ -457,40 +460,79 @@ plt.stateTrajComparison <- function(traj1, traj2) {
   }
   rownames(overlap) <- paste("", states)
   colnames(overlap) <- paste(" ", states)
-  #TODO: nicer plot, no scaling, etc
-  circlize::chordDiagram(overlap,
-                         grid.col=c(rainbow(n_states),
-                                    rep("black", n_states)))
+
+  sgap <- 2
+  bgap <- 50
+
+  rowsums <- sum(rowSums(abs(overlap)))
+  colsums <- sum(colSums(abs(overlap)))
+
+  n_sector <- 2 * n_states
+
+  row_sector_degree <- (360-sgap*(n_sector-2)-bgap*2) * (rowsums/(rowsums+colsums)) +
+    sgap*(n_states-1)
+
+  start_degree <- 0 - (180-row_sector_degree)/2
+
+  gaps <- c(rep(sgap, n_states - 1),
+           bgap,
+           rep(sgap, n_states - 1),
+           bgap)
+
+  circos.par(gap.after = gaps, start.degree = start_degree)
+
+  p <- chordDiagram(overlap,
+               grid.col=c(rainbow(n_states), rep("black", n_states)),
+               annotationTrack =c('name', 'grid'))
+  circos.clear()
 }
 
 
-#' Plot per-frame populations for given radii.
+#' Plot sorted per-frame populations for given radii.
 #'
-#' @param rc Either the reaction coordinates used for clustering or
-#'           a path to the pop files.
-#' @param radii Radii selection. If NULL (default), plot all available.
-#' @param logy Plot with logarithmic y-scale.
+#' @param pops Character or data frame, prefix of population files or data frame
+#'  with neighbourhood populations per frame where each column  corresponds to a
+#'  particular neighbourhood radius.
+#' @param radii Numeric vector, selection of radii. If \code{NULL} (default),
+#' read all available population files.
+#' @param logy Logical, plot with logarithmic y-scale.
+#' @param select Numeric, plot only every n-th data point, i.e. for select=100,
+#'  the population of every 100-th frame is plotted.
+#'  A large value will improve performance significantly.
+#'  If \code{NULL} (default) select is chosen such that approx 1000 data points
+#'  are plotted.
 #' @import ggplot2
 #' @importFrom reshape2 melt
 #' @export
-plt.pops <- function(rc, radii=NULL, logy=TRUE) {
+plt.populations <- function(pops, radii=NULL, logy=TRUE, select=NULL) {
 
-  #TODO find plotting method with higher performance
-  #     (not geom_point, perhaps 1d hist with bins=1% of n data points)
+  if(is.character(pops)) {
+    pops <- read.populations(pops, radii)
+  }
 
-  pops <- clustering.get.pops(rc, radii)
+  if(is.null(select)) {
+    select <- floor(nrow(pops)/1000)  # plot approx 1000 data points
+  }
+
   for(i in colnames(pops)) {
     pops[[i]] <- sort(pops[[i]], decreasing=TRUE)
   }
-  pops$id <- 1:nrow(pops)
+
+  n_frames <- nrow(pops)
+  pops$id <- 1:n_frames
+
+  pops <- pops[1:floor(n_frames/select) * select,]
+
   p <- ggplot(melt(pops, id.vars="id")) +
     geom_line(aes(x=id, y=value, color=variable)) +
     xlab("frames") +
-    ylab("sorted populations")
+    ylab("sorted populations") +
+    scale_color_discrete(name="Radius")
+
   if (logy) {
     p <- p + scale_y_log10()
   }
-  p
+  return(p)
 }
 
 
@@ -499,12 +541,10 @@ plt.pops <- function(rc, radii=NULL, logy=TRUE) {
 #' @param dirname Directory of MPP run
 #' @importFrom magrittr "%>%"
 #' @importFrom dplyr mutate count arrange
-#' @importFrom igraph graph plot.igraph
+#' @importFrom igraph graph plot.igraph layout_with_kk
+#'
 #' @export
 plt.mppNetwork <- function(dirname) {
-  require(igraph, quietly=TRUE, warn.conflicts=FALSE)
-  require(dplyr, quietly=TRUE, warn.conflicts=FALSE)
-
   #### get the data
   # helper to get different data files from MPP directory
   get_mpp_data <- function(fname) {
@@ -547,8 +587,41 @@ plt.mppNetwork <- function(dirname) {
        vertex.size=log(pops),
        edge.arrow.size=0.2,
        edge.width=g$weights,
-       layout=layout_with_kk)
+       layout=layout_with_kk(g))
 }
 
+#' Plot waiting time distributions.
+#'
+#' @param wtd data.frame, waiting time distributions
+#' @param max_frame Numeric, limit the x-axis to obtain a nicer plot.
+#' @param ploty Logical, plot with logarithmic y-scale.
+#' @import ggplot2
+#' @export
+plt.wtDistributions <- function(wtd, max_frame=NULL, logy=F) {
 
+  # state and window size as factor
+  wtd$wsize <- factor(wtd$wsize)
+  wtd$state <- factor(wtd$state)
+
+  title <- "Waiting Time Distribution"
+
+  plt <-ggplot(wtd,
+               aes(x=frame,
+               y=probability,
+               group=wsize,
+               color=wsize)) +
+        geom_line() +
+        ggtitle(title) +
+        scale_color_discrete(name="window size") +
+        facet_grid(state ~ .,
+                   labeller = labeller(.rows=function(i) {paste("state", i)}))
+
+  if(!is.null(max_frame)) {
+    plt <- plt + xlim(0, max_frame)
+  }
+  if (logy) {
+    plt <- plt + scale_y_log10()
+  }
+  return(plt)
+}
 
