@@ -191,13 +191,13 @@ plt.pcaOverview <- function(coords, pcs, corr=FALSE) {
 #' @param diverge Logical, should a diverging color scale be used?
 #'  (default: \code{FALSE})
 #' @import ggplot2
-#' @importFrom data.table fread
+#' @importFrom data.table fread as.data.table
 #' @export
 plt.pcaProj <- function(projected, dim1=1, dim2=2, diverge=FALSE) {
   if (is.character(projected)) {
     pcs <- fread(projected, select=c(dim1, dim2), verbose=F, showProgress=F)
   } else {
-    pcs <- projected[, c(dim1, dim2)]
+    pcs <- as.data.table(projected)[, .SD, .SDcols=c(dim1, dim2)]
   }
 
   colnames(pcs) <- c("x", "y")

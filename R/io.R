@@ -29,8 +29,9 @@ read.dihedrals <- function(dihedrals, resnos=NULL, dihedralsInfo=NULL) {
     # No info file exists, assume default case: first and last dihedral missing
     n_dih <- ncol(fread(dihedrals, verbose=F, showProgress=F, nrows=1))
     storedResnos <- 2:(n_dih/2+1)
-    message("No .info file found. Assuming .dih file contains dihedrals of all
-             residues except the first and last one.")
+    message(paste0("No .info file found. Assuming .dih file ",
+                   "contains dihedrals of all but the incomplete ",
+                   "terminal residues."))
   }
 
   if (is.null(resnos)){
