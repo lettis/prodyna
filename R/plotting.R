@@ -216,8 +216,11 @@ plt.pcaProj <- function(projected, dim1=1, dim2=2, diverge=FALSE) {
                    y=y,
                    fill=-log(..count../max(..count..)))) +
     scale_fill_distiller(palette = color_palette,
-                         guide   = guide_colourbar(title="[kT]",
-                                            reverse=TRUE)) +
+                         guide   = guide_colourbar(
+                                      title=expression(group("[",
+                                                             k[B]*T,
+                                                             "]")),
+                                      reverse=FALSE)) +
     xlab(paste("PC", dim1)) +
     ylab(paste("PC", dim2)) +
     theme_bw()
