@@ -352,47 +352,6 @@ generate.caDistances <- function(ref, traj, residue.mindist=4, residue.maxdist=N
 
 }
 
-#' PCA on C\eqn{\alpha} distance.
-#'
-#' Run PCA on a trajectory of C\eqn{\alpha} distances.
-#'
-#' @param caDists Character, name of file containing the C\eqn{\alpha} distances.
-#' @param corr Logical, if \code{TRUE} use correlation instead of covariance.
-#'   Effectively whitens the data before doing the analysis (default:
-#'   \code{FALSE}).
-#' @param ignoreCache Logical, if \code{TRUE} recompute even if output files
-#'   already exist (default: \code{FALSE}).
-#' @export
-run.caPCA <- function(caDists, corr=FALSE, ignoreCache=FALSE) {
-
-  results <- c("proj", "vec", "val", "cov", "stats")
-
-  if (corr) {
-    results <- paste(results, "n", sep="")
-  }
-  results <- paste(caDists, results, sep=".")
-
-  # results already computed?
-  outputFilesExist <- all(file.exists(results))
-
-  if (!ignoreCache | outputFilesExist) {
-    warning(msg("caching", "run.caPCA"))
-
-  } else {
-    params <- c("-f", "-p", "-v", "-l", "-c", "-s")
-    params <- c(rbind(params, c(caDists, results)))
-    if (corr) {
-      params <- c(params, "-N")
-    }
-    # run PCA
-    message("Running 'fastpca'..")
-    run.cmd(cmd     = get.binary("fastpca"),
-            args    = params,
-            onError = function(){unlink(results)})
-    message(".. done.")
-  }
-
-}
 
 #' Generate reaction coordinates.
 #'

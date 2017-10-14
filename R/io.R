@@ -183,8 +183,6 @@ write.caDistances.info <- function(ref, traj, mindist, maxdist, fname=NULL) {
 
 #' Cumulative fluctuations.
 #'
-#' TODO: divide by max(vals) or sum(vals) ?
-#'
 #' @param vals Character or numeric vector, either name of the .val/.valn file
 #'  or vector of eigenvalues.
 #' @return cumulative fluctuations
@@ -196,7 +194,7 @@ read.cumFlucts <- function(vals) {
     vals <- fread(vals, showProgress=F, verbose=F)
     vals <- vals$V1
   }
-  return(cumsum(vals/max(vals)))
+  return(cumsum(vals/sum(vals)))
 }
 
 #' Read population files.

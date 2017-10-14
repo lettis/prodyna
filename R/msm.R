@@ -44,9 +44,6 @@ msm.countMatrix <- function(traj, lag, traj_ids=NULL) {
 #'
 #' Construct a transition matrix from a trajectory.
 #'
-#' TODO: param enforce.db Enforce detailed balance by averaging over
-#'                   forward and backward rates.
-#'
 #' @param traj Character or numeric vector, name of trajectory file or vector
 #'  describing the state trajectory.
 #' @param lag Numeric, time lag to use for counting jumps expressed in number

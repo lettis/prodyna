@@ -7,7 +7,6 @@
 #'  providing the data.
 #' @param lag.max Numeric, maximal correlation lag.
 #'  If < 1, expressed in fractions of total length (default: 0.25).
-#' @param type Character, one of \code{c("correlation", "covariance")}. NOT USED
 #' @param columns Numeric vector, selected observables for which the
 #'  autocorrelation should be computed. If \code{NULL} compute all.
 #' @param circular Logical, should autocorrelation be computed for circular
@@ -18,7 +17,7 @@
 #' @return data.frame where row i corresponds to the autocorrelation for a delay
 #'  of i-1 frames.
 #' @export
-stats.autocor <- function(x, lag.max=0.25, type="correlation", columns=NULL, circular=FALSE, circ.units="deg") {
+stats.autocor <- function(x, lag.max=0.25, columns=NULL, circular=FALSE, circ.units="deg") {
   # prepare data import
   if (is.character(x)) {                    # interpret as filename
     colSelect <- function(col) {
