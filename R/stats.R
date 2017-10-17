@@ -18,10 +18,11 @@
 #'  of i-1 frames.
 #' @export
 stats.autocor <- function(x, lag.max=0.25, columns=NULL, circular=FALSE, circ.units="deg") {
+
   # prepare data import
   if (is.character(x)) {                    # interpret as filename
     colSelect <- function(col) {
-      fread(input=x, select=col, verbose=F, showProgress=F)$V1
+      fread(input=x, select=col, verbose=F, showProgress=F)[[1]]
     }
     if (is.null(columns)) {
       columns <- names(fread(x, nrows=1))
