@@ -26,8 +26,8 @@ Imports:
     subprocess,
     igraph,
     circlize, 
-    magrittr
-LinkingTo: Rcpp
-Suggests: knitr,
+    magrittr,
     rmarkdown
+LinkingTo: Rcpp
+Suggests: knitr
 VignetteBuilder: knitr
