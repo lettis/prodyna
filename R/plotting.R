@@ -246,14 +246,9 @@ plt.cumFlucts <- function(eigenvals, labels) {
 
   for (i in 1:length(labels)) {
 
-    if(is.character(eigenvals)){
-      cf <- fread(eigenvals[i], verbose=FALSE, showProgress=FALSE)$V1
-    } else {
-      cf <- eigenvals[[i]]
-    }
-    cf <- cumsum(cf/sum(cf))
+    cf <- read.cumFlucts(eigenvals[[i]])
 
-    cfs[[i]]   <- data.frame(1:length(cf), cf, labels[[i]])
+    cfs[[i]] <- data.frame(1:length(cf), cf, labels[[i]])
     colnames(cfs[[i]]) <- c("PC", "cumfluct", "method")
   }
 
@@ -272,6 +267,7 @@ plt.cumFlucts <- function(eigenvals, labels) {
 #' For multiple coordinate files the mean autocorrelation and variance is
 #' plotted (for each column the mean/variance is compute over all files).
 #'
+#'
 #' @param coords Character or (list of) data.frame(s), vector of coordinate
 #' filenames or a (list of) data frame(s).
 #'  If multiple filenames/data frames are given, mean autocorrelation and
@@ -286,7 +282,8 @@ plt.cumFlucts <- function(eigenvals, labels) {
 #' @param dt Numeric, timestep in [ps]. If not \code{NULL}, the time axis
 #'  will be scaled accordingly. Otherwise (default) time is expressed in the
 #'  number of timesteps.
-#' @param logy Logical, plot with logarithmic y-scale.
+#' @param logy Logical, plot with logarithmic y-scale. Note: If \code{TRUE},
+#'  negative values are filtered out!
 #' @import ggplot2
 #' @importFrom reshape2 melt
 #' @importFrom dplyr left_join mutate
@@ -353,6 +350,15 @@ plt.autocor <- function(coords, columns=NULL, lag.max=0.25, circular=F, dt=NULL,
                        ymax = sapply(mu+sigma, function(x) {x}))
   }
 
+  # in case of log axis, filter out negative values
+  if (logy) {
+    if(is.null(acf_sigma)) {
+      acf_data <- acf_data[acf_data$mu > 0.001, ]
+    } else {
+      acf_data <- acf_data[acf_data$ymin > 0.001,]
+    }
+  }
+
   if (is.null(acf_sigma)) {
     p <- ggplot(acf_data) + geom_line(aes(x=t, y=mu, color=variable))
   } else {
@@ -367,7 +373,7 @@ plt.autocor <- function(coords, columns=NULL, lag.max=0.25, circular=F, dt=NULL,
 
 
   if (logy) {
-    p <- p + scale_y_log10(limits=c(0.01, 1))
+    p <- p + scale_y_log10()
   }
 
   return(p)
