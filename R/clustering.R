@@ -43,7 +43,13 @@ clustering.estimate.radii <- function(rc, radii, fe_prefix, pop_prefix) {
 
 #' Neighbourhood computation for efficient density-based geometric clustering.
 #'
-#' TODO: description
+#' The output file stores for each frame the following values:
+#' \itemize{
+#' \item nearest neighbour id (closest neighbour)
+#' \item distance to nearest neighbour
+#' \item nearest neighbour id (higher density)
+#' \item distance to higher density nearest neighbour
+#' }
 #'
 #' @param rc Character, name of the reaction coordinates file.
 #' @param radius Numeric, radius for density estimation.

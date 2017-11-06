@@ -1,11 +1,9 @@
 ---
-title: "Prodyna Tutorial"
+title: 'Analysis of Protein Dynamics: The Prodyna Tutorial '
 author: "Author"
-date: "`r Sys.Date()`"
+date: '`r Sys.Date()`'
 output: html_notebook
 ---
-
-# Analysis of Protein Dynamics: The Prodyna Tutorial 
 
 ## Introduction
 
@@ -29,14 +27,14 @@ For the rest of the tutorial, we will assume that prodyna and all its third-part
 
 Using the R-devtools package, prodyna can easily be installed directly from github. To this end, install devtools via
 
-```{r, eval=FALSE}
+```{r}
 if ( ! ("devtools" %in% installed.packages())) {
   install.packages("devtools")
 }
 ```
 
 Then, install prodyna and its R-dependencies (that might take a while) via
-```{r, eval=FALSE}
+```{r}
 devtools::install_github("lettis/prodyna")
 ```
 
@@ -75,13 +73,13 @@ The data can be downloaded from TODO.
 ---
 
 You can view the reference structure using VMD:
-```{r, eval=FALSE}
+```{r}
 prodyna::vmd.run()
 ```
 
 When VMD has properly started, load the structure file and let VMD depict the protein in the familier cartoon style:
 
-```{r, eval=FALSE}
+```{r}
 prodyna::vmd.loadPdb("HP35.pdb")
 prodyna::vmd.setStyle("NewCartoon")
 ```
@@ -90,7 +88,7 @@ prodyna::vmd.setStyle("NewCartoon")
 
 The dynamics of proteins are very complicated. A typical protein has hundreds to thousands of amino acids (HP35, the protein used in the test data is a very small example) and thousands to ten thousands of atoms. With the position of each atom distinctly defined by three Cartesian coordinates, a protein structure can be identified as a point in a very high-dimensional space.
 
-However, we are in general interested in the functional motion and thermodynamic properties like energy distributions, etc., which are intricately connected to the protein structure. The high dimensionality of the data makes a direct analysis impossible due to the so-called curse of dimensionality. Therefore, we need to reduce the number of coordinates for analysis. This is either done by constructing physically ‘meaningful’ coordinates, e.g. certain inter-molecular distances, contacts, or angles measuring the torsions of the protein chain, or by applying statistical methods like PCA to project the essential motion of protein onto a view principal components. Usually, one performs a combination of both.
+However, we are in general interested in the functional motion and thermodynamic properties like energy distributions, etc., which are intricately connected to the protein structure. The high dimensionality of the data makes a direct analysis impossible due to the so-called curse of dimensionality. Therefore, we need to reduce the number of coordinates for analysis. This is either done by constructing physically ‘meaningful’ coordinates, e.g. certain inter-molecular distances, contacts, or angles measuring the torsions of the protein chain, or by applying statistical methods like PCA to project the essential motion of protein onto a few principal components. Usually, one performs a combination of both.
 
 Having defined proper _reaction coordinates_, further analysis methods like clustering are applied to construct metastable states. Then, the dynamics of the protein might be described in a simple state model with certain, memoryless transition probabilities from one state to another (i.e., a Markov chain, hence called _Markov state models_). Every state can be described by its associated molecular structure, level of free energy, equilibrium population, etc.
 
@@ -99,18 +97,17 @@ Currently, the construction of reaction coordinates and state models and the vis
 A more detailed theoretical background of the protein analysis procedure described in the following can be found
 in [*Sittel & Stock (2016), Robust density-based clustering to identify metastable conformational states of proteins*](http://www.moldyn.uni-freiburg.de/publications/papers/135-p.pdf). In addition, the [clustering tutorial](https://github.com/lettis/Clustering/blob/master/doc/tutorial/clustering_tutorial.pdf) may provide additional information.
 
-## Contacts and distances
-
-TODO. The computation of contacts and distances is not yet implemented in prodyna.
-
 ## Dihedral angles
 
 Being a typical _folder_, i.e. a protein that constantly folds and unfolds, HP-35 is best described by the backbone dihedral angles, which encode the secondary structure. For a first assessment of the data, we will construct the dihedral angles with
 
 ```{r}
+# set path to gromacs
 prodyna::set.binary("gmx", "/usr/bin/gmx")
-prodyna::generate.dihedrals(ref  = "HP35_NLE.pdb", 
-                            traj = "HP35_every100.xtc",
+```
+```{r}
+prodyna::generate.dihedrals(ref    = "HP35_NLE.pdb", 
+                            traj   = "HP35_every100.xtc",
                             skipCA = c(1, 35))
 ```
 
@@ -140,7 +137,7 @@ str(dihInfo)
 
 Review the Ramachandran plots (with complete dihedral angle pairs) of residues 2 and 3 by running
 
-```{r}
+```{r, fig.width = 4, fig.height = 4}
 for (residue in c(2,3)) {
   show(prodyna::plt.ramachandran(residue, dihedrals=dih))
 }
@@ -148,12 +145,11 @@ for (residue in c(2,3)) {
 
 ## dPCA
 
-To reduce the dimensionality of the data set, we run a dPCA+ on the freshly generated dihedrals. Since prodyna uses the fastpca binary, which is not installed in a standard path, we need to make it aware of its existence. Adapt this to your needs.
+To reduce the dimensionality of the data set, we run a dPCA+ on the generated dihedral angles. Since prodyna uses the fastpca binary, which is not installed in a standard path, we need to make it aware of its existence. Adapt this to your needs.
 
 ```{r}
 prodyna::set.binary("fastpca", "/usr/local/bin/fastpca")
-prodyna::run.dPCAplus("HP35_every100.xtc.dih", corr = T)
-
+prodyna::run.dPCAplus(dihedrals = "HP35_every100.xtc.dih")
 ```
 
 This will produces the following files:
@@ -166,10 +162,12 @@ This will produces the following files:
 
 --- 
 
-To check on the results, we plot on overview for the first ten principal components (PCs). This shows in the lower triangle the 2D projections of the PC pairs, their 1D projections on the diagonal, and the eigenvector contributions in the upper triangle.
+To check on the results, we plot an overview for the first ten principal components (PCs). This shows in the lower triangle the 2D projections of the PC pairs, their 1D projections on the diagonal, and the eigenvector contributions in the upper triangle.
 
-```{r, fig.width = 5, fig.height = 5}
-prodyna::plt.pcaOverview(coords="HP35_every100.xtc.dih", pcs=1:10)
+```{r, fig.width = 6, fig.height = 6}
+pca_overview <- prodyna::plt.pcaOverview(coords = "HP35_every100.xtc.dih",
+                                         pcs    = 1:10)
+print(pca_overview, progress=F)
 ```
 
 The projections suggest, that PCs higher than seven do not really show structure and probably encode thermal fluctuations only. Furthermore, PC six does not seem to be very interesting. Therefore, we perform dimensionality reduction by selecting PCs 1-5 and 7 as reaction coordinates.
@@ -180,8 +178,7 @@ prodyna::generate.reactionCoordinates(coords  = "HP35_every100.xtc.dih.proj",
                                       output  = "reaction_coords")
 ```
 
-This produces the file `HP35_every100.xtc.dih.proj.1-5.7` containing only the selected coordinates, as well as the file `HP35_every100.xtc.dih.proj.1-5.7.info` 
-which stores which columns of which files were selected.
+This produces the file `reaction_coords` containing only the selected coordinates, as well as the file `reaction_coords.info` which holds information on which columns of which files were selected.
 
 The reduced coordinate set will from now on define our reaction coordinates.
 ```{r}
@@ -210,7 +207,7 @@ prodyna::clustering.estimate.radii(rc         = rc,
                                    pop_prefix = "geomClust/population")
 ```
 
-This will create a directory called _geomClust_ that contains files named `freeEnergy_<radius>` and `population_<radius>` where `<radius>` takes the values 0.2, 0.3, 0.4, 0.5, 0.6.
+This will create a directory called _geomClust_ that contains files named `freeEnergy_<radius>` and `population_<radius>` where `<radius>` takes the values 0.25, 0.3, 0.35, 0.4, 0.45.
 
 Choosing a large radius will ensure good sampling. However, the population distribution should still show an exponential decay. This can be checked by plotting the neighbourhood populations per frame sorted in descending order.
 
@@ -256,6 +253,7 @@ prodyna::clustering.densityNetwork(minpop       = 100,
                                    clust_prefix = "geomClust/clust",
                                    step         = 0.1)
 ```
+
 This will produces several files in the `geomClust` directory:
 
  * `remapped_clust_<feThreshold>` 
@@ -284,7 +282,7 @@ The file `microstates` contains the final state assignments per frame obtained b
 
 To obtain states that are both geometrically similar and somewhat stable over time, the MPP (most-probable-path) algorithm is used to cluster the microstates that resulted from geometric clustering by their transition times.
 
-Here, the paramter `lagtime` specifies how many frames should be skipped when computing transition probabilities from one state to another. This way processes on very short timescales will be discarded and -given a high enough lagtime- the resulting system will be approximately markovian. 
+Here, the parameter `lagtime` specifies how many frames should be skipped when computing transition probabilities from one state to another. This way processes on very short timescales will be discarded and -given a high enough lagtime- the resulting system will be approximately markovian. 
 
 The metastability criterion \code{Q} controls how stable a state has to be to remain as single state. States with a self-transition probability lower than the metastability \code{Q} will be combined with the state to which their transition probability is highest.
 
@@ -292,13 +290,15 @@ The metastability criterion \code{Q} controls how stable a state has to be to re
 dir.create("dynamicClust")
 prodyna::clustering.mpp(microstates = "geomClust/microstates",
                         fe_prefix   = "geomClust/freeEnergy",
-                        radius      = 0.3,
+                        radius      = 0.35,
                         lagtime     = 25,
                         mpp         = "dynamicClust/mpp",
-                        Q           = 0.3)
+                        Qmin           = 0.1,
+                        Qstep = 0.1,
+                        Qmax = 0.5)
 ```
 
-This will generate files called `mpp_pop_0.200.dat` and `mpp_traj_0.200.dat`. (TODO: and other output files ...)
+This will generate files called `mpp_pop_0.300.dat` and `mpp_traj_0.300.dat`. (TODO: and other output files ...)
 
 The population files hold the population information of the clusters for the given metastibility, while the trajectory files contain the resulting cluster/state trajectories.
 
@@ -323,23 +323,24 @@ prodyna::plt.wtDistributions(wtd, max_frame = 300, logy=F)
 
 We use a coring window of 10 frames for state 1 and 2, and a coring window of 5 for state 3. The cored state trajectory is obtained via:
 
-```{r}
+```{r, fig.width = 4, fig.height = 4}
 prodyna::clustering.coring(traj       = "dynamicClust/mpp_traj_0.300.dat",
                            traj_cored = "dynamicClust/coredTrajectory",
                            states = c(1,2,3),
                            wsizes = c(10,10,5))
 
-prodyna::plt.stateTrajComparison("dynamicClust/mpp_traj_0.300.dat", "dynamicClust/coredTrajectory")
+prodyna::plt.stateTrajComparison(traj1 = "dynamicClust/mpp_traj_0.300.dat",
+                                 traj2 = "dynamicClust/coredTrajectory")
 ```
 
----
-
-The cored state trajectory is approximately Markovian. The transition matrix of this system can be estimated from the trajectory.
+The cored state trajectory is approximately Markovian. The transition matrix of this system can be estimated from the trajectory and used to sample simulated state trajectories.
 
 ```{r}
 T <- prodyna::msm.transitionMatrix(traj = "dynamicClust/coredTrajectory",
                                    lag  = 1)
 simulated_trajectory <- prodyna::msm.sim(T, 1, 100)
+
+prodyna::plt.mppNetwork(dirname="dynamicClust")
 ```
 
 ---
@@ -348,7 +349,7 @@ The metastable states resulting from the clustering procedure can be described
 by a *Ramacolor plot* which shows the color-coded dihedral angle content per 
 residue. 
 
-```{r}
+```{r, fig.width = 4, fig.height = 4}
 prodyna::plt.ramacolor(statetraj = "dynamicClust/coredTrajectory",
                        dihedrals = "HP35_every100.xtc.dih")
 ```

@@ -164,7 +164,7 @@ plt.pcaOverview <- function(coords, pcs, corr=FALSE) {
         # upper
         subplt <- ggplot(vecs[vecs$v==vec_names[x] | vecs$v==vec_names[y],],
                       aes(x=ndx, y=abs(dih), group=v, color=v)) +
-                  geom_line(size=2)
+                  geom_line(size=1)
       } else {
         # diag
         subplt <- ggplot(proj, aes_string(x=names(proj)[x])) +
