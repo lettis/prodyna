@@ -17,5 +17,11 @@ radius will be appended). Default is "fe".}
 \item{nn}{Character, name of the nearest-neighbours output file.}
 }
 \description{
-TODO: description
+The output file stores for each frame the following values:
+\itemize{
+\item nearest neighbour id (closest neighbour)
+\item distance to nearest neighbour
+\item nearest neighbour id (higher density)
+\item distance to higher density nearest neighbour
+}
 }

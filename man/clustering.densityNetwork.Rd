@@ -10,7 +10,7 @@ clustering.densityNetwork(minpop, clust_prefix = "clust", step = 0.1)
 \item{minpop}{Numeric, minimum population to count a microstate as node.}
 
 \item{clust_prefix}{Character, prefix of the clustering files obtained by
-screening the free energy landscape (se \code\link{clustering.screening}).}
+screening the free energy landscape (see \code{\link{clustering.screening}}).}
 
 \item{step}{Numeric, step size, i.e. free energy differences between nodes.}
 }
@@ -24,7 +24,5 @@ Output files are
 }
 Note that these files will be written to the directory that contains the
 <clust_prefix>_<radius> files.
-}
-\details{
-TODO clustering files currently need to be named clust.<radius>
+(TODO clustering files currently need to be named clust.<radius>)
 }

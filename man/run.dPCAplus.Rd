@@ -17,4 +17,11 @@ already exist (default: \code{FALSE}).}
 }
 \description{
 Runs a dPCA+ analysis on dihedral angles.
+The following files are created:
+\itemize{
+\item if \code{corr} is \code{FALSE}: <coords>.proj, <coords>.vec,
+      <coords>.val, <coords>.cov, <coords>.stats
+\item if \code{corr} is \code{TRUE}: <coords>.projn, <coords>.vecn,
+      <coords>.valn, <coords>.covn, <coords>.statsn
+}
 }
