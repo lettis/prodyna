@@ -157,12 +157,11 @@ clustering.screening <- function(rc, radius, fe_prefix, nn, clust_prefix, min=0.
 #' }
 #' Note that these files will be written to the directory that contains the
 #' <clust_prefix>_<radius> files.
-#'
-#' TODO clustering files currently need to be named clust.<radius>
+#' (TODO clustering files currently need to be named clust.<radius>)
 #'
 #' @param minpop Numeric, minimum population to count a microstate as node.
 #' @param clust_prefix Character, prefix of the clustering files obtained by
-#'  screening the free energy landscape (se \code\link{clustering.screening}).
+#'  screening the free energy landscape (see \code{\link{clustering.screening}}).
 #' @param step Numeric, step size, i.e. free energy differences between nodes.
 #' @export
 clustering.densityNetwork <- function(minpop, clust_prefix="clust", step=0.1) {
@@ -450,12 +449,8 @@ clustering.coring <- function(traj, traj_cored, states, wsizes, wsize_default=NU
     w_specification <- ""
   }
 
-  for(i in length(wsizes)) {
-
-    w_specification <- paste(w_specification,
-                             states[i],
-                             wsizes[i],
-                             "\n")
+  for(i in 1:length(wsizes)) {
+    w_specification <- paste0(w_specification, states[i], " ", wsizes[i], "\n")
   }
 
   write(w_specification, file=win_fname)
