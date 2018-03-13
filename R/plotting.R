@@ -72,10 +72,10 @@ plt.ramachandran <- function(resno, dihedrals, reslabel=NULL) {
 #' @param zlim Numeric vector, minimum and maximum value for color scale.
 #'   If \code{NULL} (default) limits are given by the min/max values of the matrix.
 #' @import ggplot2
-#' @importFrom plotly ggplotly config layout
 #' @importFrom magrittr "%>%"
 #' @importFrom reshape2 melt
 #' @export
+#  TODO fancy plotting, @importFrom plotly ggplotly config layout
 plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   if (is.character(x)) {
     # interpret as filename
@@ -106,13 +106,14 @@ plt.matrix <- function(x, diverge=FALSE, fancy=FALSE, zlim=NULL) {
   } else {
     p <- p + scale_fill_distiller(palette=clr_palette, limits=zlim)
   }
-  # fancy plotting for Rnotebooks
-  if (fancy) {
-    p <- ggplotly(p, tooltip="value") %>%
-          config(displayModeBar=FALSE) %>%
-          layout(xaxis=list(fixedrange=TRUE)) %>%
-          layout(yaxis=list(fixedrange=TRUE))
-  }
+
+  # TODO: fancy plotting for Rnotebooks, dependency errors with new R version
+  # if (fancy) {
+  #  p <- ggplotly(p, tooltip="value") %>%
+  #        config(displayModeBar=FALSE) %>%
+  #        layout(xaxis=list(fixedrange=TRUE)) %>%
+  #        layout(yaxis=list(fixedrange=TRUE))
+  #}
   return(p)
 }
 
